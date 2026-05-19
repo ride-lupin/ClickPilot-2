@@ -1,8 +1,7 @@
-import type { AutomationTask, BrowserRunTarget } from "../types";
-import { LoginCheckPanel } from "./LoginCheckPanel";
+import type { AutomationTask } from "../types";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { StepEditor } from "./StepEditor";
-import type { FastClickSettings, LoginCheckResult, ManagedBrowserProfileTarget } from "../types";
+import type { FastClickSettings } from "../types";
 
 type Props = {
   draft: AutomationTask;
@@ -12,8 +11,6 @@ type Props = {
   onDeleteStep: (index: number) => void;
   onAddRefreshStep: () => void;
   onRequestCapture: () => void;
-  onOpenProfile: (target: ManagedBrowserProfileTarget) => Promise<void>;
-  onCheckLogin: (target: BrowserRunTarget) => Promise<LoginCheckResult>;
 };
 
 function defaultFastClickSettings(): FastClickSettings {
@@ -35,8 +32,6 @@ export function TaskEditor({
   onDeleteStep,
   onAddRefreshStep,
   onRequestCapture,
-  onOpenProfile,
-  onCheckLogin,
 }: Props) {
   const fastClick = normalizeFastClickSettings(draft.fastClick ?? defaultFastClickSettings());
 
@@ -186,7 +181,6 @@ export function TaskEditor({
         onAddRefreshStep={onAddRefreshStep}
         onRequestCapture={onRequestCapture}
       />
-      <LoginCheckPanel target={draft.runTarget} onOpenProfile={onOpenProfile} onCheckLogin={onCheckLogin} />
       {saveFeedback && <p className={`save-feedback ${saveFeedback.kind}`}>{saveFeedback.message}</p>}
       <div className="editor-actions">
         <button type="button" className="primary-button save-button" onClick={onSave}>

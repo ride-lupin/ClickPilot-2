@@ -3,13 +3,11 @@ import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   browserBridgeStatus,
-  checkBrowserLogin,
   clearExecutionLogs,
   deleteTask,
   getLatestBrowserCapture,
   listExecutionLogs,
   listTasks,
-  openBrowserProfile,
   requestBrowserCapture,
   saveTask,
   startBrowserCapture,
@@ -337,8 +335,6 @@ export default function App() {
               onDeleteStep={deleteDraftStep}
               onAddRefreshStep={addRefreshStep}
               onRequestCapture={() => void handleRequestBrowserCapture()}
-              onOpenProfile={openBrowserProfile}
-              onCheckLogin={checkBrowserLogin}
             />
           ) : (
             <section className="empty-state">

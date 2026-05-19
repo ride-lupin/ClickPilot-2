@@ -36,11 +36,6 @@ export function ExecutionLogs({ logs, onClearLogs }: Props) {
               <p className="log-time">시작: {formatTimestamp(log.startedAt)}</p>
               {log.finishedAt && <p className="log-time">완료: {formatTimestamp(log.finishedAt)}</p>}
               {log.failureReason && <p>실패 사유: {reasonCopy[log.failureReason] ?? log.failureReason}</p>}
-              {log.screenshotPath && (
-                <button type="button" className="link-button" onClick={() => openScreenshot(log.screenshotPath!, log.taskName)}>
-                  스크린샷 보기
-                </button>
-              )}
             </li>
           ))}
         </ul>
@@ -66,46 +61,3 @@ function formatTimestamp(value: string) {
 
   return `${part("year")}년 ${part("month")}월 ${part("day")}일 ${part("hour")}시 ${part("minute")}분 ${part("second")}초`;
 }
-
-function openScreenshot(source: string, taskName: string) {
-  const viewer = window.open("", "_blank");
-  if (!viewer) {
-    const link = document.createElement("a");
-    link.href = source;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    link.click();
-    return;
-  }
-
-  viewer.document.write(`<!doctype html>
-    <html lang="ko">
-      <head>
-        <title>${escapeHtml(taskName)} 스크린샷</title>
-        <style>
-          body { margin: 0; background: #111; display: grid; min-height: 100vh; place-items: center; }
-          img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
-        </style>
-      </head>
-      <body>
-        <img src="${escapeAttribute(source)}" alt="${escapeAttribute(taskName)} 실행 스크린샷" />
-      </body>
-    </html>`);
-  viewer.document.close();
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => htmlEscapes[character]);
-}
-
-function escapeAttribute(value: string) {
-  return escapeHtml(value);
-}
-
-const htmlEscapes: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};

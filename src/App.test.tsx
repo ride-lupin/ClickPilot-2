@@ -320,9 +320,7 @@ describe("ClickPilot task workflow", () => {
     expect(await screen.findByText("09:00")).toBeInTheDocument();
   });
 
-  it("shows login readiness and execution logs", async () => {
-    const screenshotDocument = { write: vi.fn(), close: vi.fn() };
-    const openSpy = vi.spyOn(window, "open").mockReturnValue({ document: screenshotDocument } as unknown as Window);
+  it("shows execution logs without screenshot action", async () => {
     apiMocks.listExecutionLogs.mockResolvedValue([
       {
         id: "log-1",
@@ -340,16 +338,11 @@ describe("ClickPilot task workflow", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "새 작업" }));
 
-    expect(screen.getByText("실행 전 로그인 확인")).toBeInTheDocument();
+    expect(screen.queryByText("실행 전 로그인 확인")).not.toBeInTheDocument();
     expect(await screen.findByText(/버튼을 찾지 못했습니다/)).toBeInTheDocument();
     expect(screen.getByText(/시작: 2026년 05월 19일/)).toBeInTheDocument();
     expect(screen.getByText(/완료: 2026년 05월 19일/)).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "스크린샷 보기" }));
-
-    expect(openSpy).toHaveBeenCalledWith("", "_blank");
-    expect(screenshotDocument.write).toHaveBeenCalledWith(expect.stringContaining("/tmp/clickpilot/failure.png"));
-    openSpy.mockRestore();
+    expect(screen.queryByRole("button", { name: "스크린샷 보기" })).not.toBeInTheDocument();
   });
 
   it("clears all execution logs from the logs panel action", async () => {
