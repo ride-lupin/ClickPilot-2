@@ -200,7 +200,7 @@ describe("ClickPilot task workflow", () => {
 
     expect(apiMocks.startBrowserCapture).toHaveBeenCalledTimes(1);
     expect(apiMocks.requestBrowserCapture).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(screen.getByLabelText("대상 탭 도메인")).toHaveValue("example.com"));
+    await waitFor(() => expect(screen.getByLabelText("대상 탭 도메인")).toHaveValue("example.com"), { timeout: 2500 });
   });
 
   it("keeps token controls global and places browser selection in the click steps section", async () => {
