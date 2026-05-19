@@ -203,6 +203,7 @@ mod tests {
                 login_check_url: None,
                 login_success_selector: None,
             },
+            fast_click: None,
             created_at: "2026-05-19T00:00:00.000Z".into(),
             updated_at: "2026-05-19T00:00:00.000Z".into(),
         }

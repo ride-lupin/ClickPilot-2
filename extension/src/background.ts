@@ -1,4 +1,4 @@
-import { runStepsInTab, urlMatches, type BrowserStep } from "./execution";
+import { runFastClickInTab, runStepsInTab, urlMatches, type BrowserStep, type FastClickSettings } from "./execution";
 
 type ExistingTabExecutionRequest = {
   executionId: string;
@@ -7,6 +7,7 @@ type ExistingTabExecutionRequest = {
   browser: "chrome" | "edge" | "any";
   tabUrlPattern: string;
   requireActiveTab: boolean;
+  fastClick?: FastClickSettings;
   steps: BrowserStep[];
 };
 
@@ -130,8 +131,10 @@ async function runExistingTab(request: ExistingTabExecutionRequest) {
   }
 
   await revealTab(tab);
-  const response = await runStepsInTab(chrome, tab, request.steps);
-  const screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+  const response = request.fastClick?.enabled
+    ? await runFastClickInTab(chrome, tab, request.steps, request.fastClick)
+    : await runStepsInTab(chrome, tab, request.steps);
+  const screenshotDataUrl = request.fastClick?.enabled ? undefined : await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
   return {
     executionId: request.executionId,
     taskId: request.taskId,

@@ -10,6 +10,19 @@ type BrowserElementStep = {
   delayAfterMs: number;
 };
 
+type FastClickSettings = {
+  enabled: boolean;
+  armBeforeMs: number;
+  refreshPolicy: "none" | "onceAtStart" | "repeatAfterStart";
+  refreshIntervalMs: number;
+  maxWaitMs: number;
+  clickWhen: {
+    visible: boolean;
+    notDisabled: boolean;
+    textIncludes?: string;
+  };
+};
+
 let captureEnabled = false;
 let highlighted: HTMLElement | null = null;
 const pollingKeepaliveMs = 5000;
@@ -26,6 +39,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "CLICKPILOT_EXECUTE_STEPS") {
     void executeSteps(message.steps).then(sendResponse);
+    return true;
+  }
+
+  if (message.type === "CLICKPILOT_ARM_FAST_CLICK") {
+    void armFastClick(message.step, message.settings).then(sendResponse);
     return true;
   }
 });
@@ -102,6 +120,72 @@ async function clickStep(step: BrowserElementStep): Promise<{ ok: true } | { ok:
     await delay(step.retry.retryDelayMs);
   }
   return { ok: false, reason: "elementNotFound" };
+}
+
+async function armFastClick(
+  step: BrowserElementStep,
+  settings: FastClickSettings,
+): Promise<{ status: "success"; clickedSteps: number; latencyMs: number } | { status: "failed"; reason: string; clickedSteps: number }> {
+  const startedAt = performance.now();
+  const deadline = Date.now() + settings.maxWaitMs;
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (result: { status: "success"; clickedSteps: number; latencyMs: number } | { status: "failed"; reason: string; clickedSteps: number }) => {
+      if (done) return;
+      done = true;
+      observer.disconnect();
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+      resolve(result);
+    };
+
+    const attemptClick = () => {
+      const element = resolveElement(step.selectorCandidates);
+      if (element && elementMatchesFastClick(element, settings)) {
+        element.scrollIntoView({ block: "center", inline: "center" });
+        dispatchClickSequence(element, step.clickOffsetRatio);
+        finish({ status: "success", clickedSteps: 1, latencyMs: Math.round(performance.now() - startedAt) });
+      }
+      if (Date.now() >= deadline) {
+        finish({ status: "failed", reason: "timeout", clickedSteps: 0 });
+      }
+    };
+
+    const observer = new MutationObserver(attemptClick);
+    observer.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class", "style", "disabled", "aria-disabled", "hidden"],
+      characterData: true,
+    });
+    const interval = window.setInterval(attemptClick, Math.max(50, Math.min(250, step.wait?.pollIntervalMs ?? 100)));
+    const timeout = window.setTimeout(() => finish({ status: "failed", reason: "timeout", clickedSteps: 0 }), settings.maxWaitMs);
+    attemptClick();
+  });
+}
+
+function elementMatchesFastClick(element: HTMLElement, settings: FastClickSettings) {
+  if (settings.clickWhen.visible && !isElementVisible(element)) return false;
+  if (settings.clickWhen.notDisabled && isElementDisabled(element)) return false;
+  if (settings.clickWhen.textIncludes && !normalizedText(element).includes(settings.clickWhen.textIncludes)) return false;
+  return true;
+}
+
+function isElementVisible(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  const style = window.getComputedStyle(element);
+  return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none" && style.pointerEvents !== "none";
+}
+
+function isElementDisabled(element: HTMLElement) {
+  return (
+    element.hasAttribute("disabled") ||
+    element.getAttribute("aria-disabled") === "true" ||
+    (element instanceof HTMLButtonElement && element.disabled) ||
+    (element instanceof HTMLInputElement && element.disabled)
+  );
 }
 
 async function keepPollingAlive() {

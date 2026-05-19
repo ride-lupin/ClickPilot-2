@@ -19,8 +19,22 @@ export type AutomationTask = {
   steps: AutomationStep[];
   safety: Safety;
   runTarget: BrowserRunTarget;
+  fastClick?: FastClickSettings;
   createdAt: string;
   updatedAt: string;
+};
+
+export type FastClickSettings = {
+  enabled: boolean;
+  armBeforeMs: number;
+  refreshPolicy: "none" | "onceAtStart" | "repeatAfterStart";
+  refreshIntervalMs: number;
+  maxWaitMs: number;
+  clickWhen: {
+    visible: boolean;
+    notDisabled: boolean;
+    textIncludes?: string;
+  };
 };
 
 export type AutomationStep = BrowserElementStep | BrowserRefreshStep | ScreenCoordinateStep;

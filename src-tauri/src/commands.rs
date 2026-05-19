@@ -180,6 +180,7 @@ mod tests {
                 login_check_url: None,
                 login_success_selector: None,
             },
+            fast_click: None,
             created_at: "2026-05-19T00:00:00.000Z".into(),
             updated_at: "2026-05-19T00:00:00.000Z".into(),
         }
@@ -214,5 +215,34 @@ mod tests {
 
         assert!(saved.id.starts_with("task-"));
         assert_eq!(storage.list_tasks().unwrap()[0].id, saved.id);
+    }
+
+    #[test]
+    fn start_task_now_passes_enabled_fast_click_settings_to_extension() {
+        let dir = tempdir().unwrap();
+        let storage = Storage::new(dir.path().into());
+        let mut task = existing_tab_task();
+        task.fast_click = Some(crate::models::FastClickSettings {
+            enabled: true,
+            arm_before_ms: 5000,
+            refresh_policy: crate::models::FastClickRefreshPolicy::OnceAtStart,
+            refresh_interval_ms: 500,
+            max_wait_ms: 10000,
+            click_when: crate::models::FastClickCondition {
+                visible: true,
+                not_disabled: true,
+                text_includes: None,
+            },
+        });
+        storage.save_task(task).unwrap();
+        let bridge = BrowserBridge::new(27183);
+        let session = bridge.start_capture();
+        assert!(bridge.pair(&session.pairing_token));
+
+        start_task_now(&storage, &bridge, "task-existing-tab".into()).unwrap();
+
+        let queued = bridge.next_existing_tab("").expect("queued execution");
+        assert!(queued.fast_click.is_some());
+        assert_eq!(queued.fast_click.unwrap().refresh_interval_ms, 500);
     }
 }

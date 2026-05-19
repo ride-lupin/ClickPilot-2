@@ -142,6 +142,31 @@ describe("ClickPilot task workflow", () => {
     expect(screen.getByLabelText("실행 브라우저 방식")).toBeInTheDocument();
   });
 
+  it("defaults new tasks to existing browser tabs and disables managed profile selection", async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "새 작업" }));
+
+    const runTarget = screen.getByLabelText("실행 브라우저 방식");
+    expect(runTarget).toHaveValue("existingTab");
+    expect(screen.getByRole("option", { name: "전용 자동화 브라우저" })).toBeDisabled();
+    expect(screen.getByLabelText("대상 탭 URL 패턴")).toHaveValue("https://");
+  });
+
+  it("shows fast click controls only when the option is enabled", async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "새 작업" }));
+
+    expect(screen.queryByLabelText("새로고침 방식")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText("선착순 모드 사용"));
+
+    expect(screen.getByLabelText("새로고침 방식")).toHaveValue("onceAtStart");
+    expect(screen.getByLabelText("최대 대기 시간(ms)")).toHaveValue(10000);
+    expect(screen.getByLabelText("반복 새로고침 간격(ms)")).toHaveValue(500);
+  });
+
   it("refreshes the pairing token separately from browser button selection", async () => {
     apiMocks.startBrowserCapture.mockResolvedValue({ port: 27183, pairingToken: "pair-token-123" });
     apiMocks.getLatestBrowserCapture

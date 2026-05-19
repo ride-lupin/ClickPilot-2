@@ -55,6 +55,7 @@ mod tests {
                 login_check_url: None,
                 login_success_selector: None,
             },
+            fast_click: None,
             created_at: "2026-05-19T00:00:00.000Z".into(),
             updated_at: "2026-05-19T00:00:00.000Z".into(),
         }
@@ -110,5 +111,26 @@ mod tests {
         })];
 
         validate_task(&task).unwrap();
+    }
+
+    #[test]
+    fn fast_click_requires_existing_tab_target() {
+        let mut task = browser_task_fixture();
+        task.fast_click = Some(FastClickSettings {
+            enabled: true,
+            arm_before_ms: 5000,
+            refresh_policy: FastClickRefreshPolicy::OnceAtStart,
+            refresh_interval_ms: 500,
+            max_wait_ms: 10000,
+            click_when: FastClickCondition {
+                visible: true,
+                not_disabled: true,
+                text_includes: None,
+            },
+        });
+
+        let error = validate_task(&task).unwrap_err();
+
+        assert_eq!(error.code, "fast_click_existing_tab_required");
     }
 }

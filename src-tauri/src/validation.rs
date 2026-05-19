@@ -16,6 +16,7 @@ pub fn validate_task(task: &AutomationTask) -> Result<(), ValidationError> {
     }
 
     validate_run_target(&task.run_target)?;
+    validate_fast_click(task)?;
 
     for step in &task.steps {
         match step {
@@ -81,6 +82,34 @@ pub fn validate_task(task: &AutomationTask) -> Result<(), ValidationError> {
         }
     }
 
+    Ok(())
+}
+
+fn validate_fast_click(task: &AutomationTask) -> Result<(), ValidationError> {
+    let Some(settings) = &task.fast_click else {
+        return Ok(());
+    };
+    if !settings.enabled {
+        return Ok(());
+    }
+    if !matches!(task.run_target, BrowserRunTarget::ExistingTab { .. }) {
+        return Err(error(
+            "fast_click_existing_tab_required",
+            "Fast click mode requires an existing browser tab target",
+        ));
+    }
+    if !(1000..=120000).contains(&settings.max_wait_ms) {
+        return Err(error(
+            "fast_click_max_wait_invalid",
+            "Fast click max wait must be between 1000 and 120000ms",
+        ));
+    }
+    if !(500..=10000).contains(&settings.refresh_interval_ms) {
+        return Err(error(
+            "fast_click_refresh_interval_invalid",
+            "Fast click refresh interval must be between 500 and 10000ms",
+        ));
+    }
     Ok(())
 }
 

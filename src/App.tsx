@@ -24,7 +24,23 @@ import type {
   BrowserCaptureSession,
   CapturedBrowserElement,
   ExecutionLog,
+  FastClickSettings,
 } from "./types";
+
+function defaultExistingTabTarget() {
+  return { mode: "existingTab" as const, browser: "any" as const, preopenSeconds: 30, tabUrlPattern: "https://", requireActiveTab: false };
+}
+
+function defaultFastClickSettings(): FastClickSettings {
+  return {
+    enabled: false,
+    armBeforeMs: 5000,
+    refreshPolicy: "onceAtStart",
+    refreshIntervalMs: 500,
+    maxWaitMs: 10000,
+    clickWhen: { visible: true, notDisabled: true },
+  };
+}
 
 function newTask(): AutomationTask {
   const now = new Date().toISOString();
@@ -33,7 +49,8 @@ function newTask(): AutomationTask {
     name: "새 작업",
     enabled: true,
     schedule: { type: "daily", timeOfDay: "09:00" },
-    runTarget: { mode: "managedProfile", browser: "chrome", profileId: "default", preopenSeconds: 30 },
+    runTarget: defaultExistingTabTarget(),
+    fastClick: defaultFastClickSettings(),
     steps: [],
     safety: { countdownSeconds: 0, stopHotkey: "Ctrl+Alt+S" },
     createdAt: now,

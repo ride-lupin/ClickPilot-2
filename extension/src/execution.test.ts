@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runStepsInTab, sendExecuteStepsWithFallback } from "./execution";
+import { runFastClickInTab, runStepsInTab, sendExecuteStepsWithFallback } from "./execution";
 
 describe("sendExecuteStepsWithFallback", () => {
   it("injects the content script and retries when the first message fails", async () => {
@@ -98,5 +98,50 @@ describe("runStepsInTab", () => {
     expect(reload).toHaveBeenCalledWith(123);
     expect(sendMessage).toHaveBeenCalledTimes(1);
     expect(sendMessage).toHaveBeenCalledWith(123, { type: "CLICKPILOT_EXECUTE_STEPS", steps: [clickStep] });
+  });
+});
+
+describe("runFastClickInTab", () => {
+  it("reloads once at start before arming the content script", async () => {
+    const step = { kind: "browserElement", urlPattern: "https://www.naver.com/", selectorCandidates: [] } as const;
+    const tab = { id: 123, windowId: 456, url: "https://www.naver.com/" };
+    const reload = vi.fn().mockResolvedValue(undefined);
+    const sendMessage = vi.fn().mockResolvedValue({ status: "success", clickedSteps: 1, latencyMs: 12 });
+    const executeScript = vi.fn().mockResolvedValue(undefined);
+    const get = vi.fn().mockResolvedValue({ ...tab, status: "complete" });
+
+    const result = await runFastClickInTab(
+      {
+        tabs: { sendMessage, get, reload },
+        scripting: { executeScript },
+      },
+      tab,
+      [step],
+      {
+        enabled: true,
+        armBeforeMs: 5000,
+        refreshPolicy: "onceAtStart",
+        refreshIntervalMs: 500,
+        maxWaitMs: 10000,
+        clickWhen: { visible: true, notDisabled: true },
+      },
+      { pollIntervalMs: 1, timeoutMs: 100 },
+    );
+
+    expect(result).toEqual({ status: "success", clickedSteps: 1, latencyMs: 12 });
+    expect(reload).toHaveBeenCalledWith(123);
+    expect(executeScript).toHaveBeenCalledWith({ target: { tabId: 123 }, files: ["src/content.js"] });
+    expect(sendMessage).toHaveBeenCalledWith(123, {
+      type: "CLICKPILOT_ARM_FAST_CLICK",
+      step,
+      settings: {
+        enabled: true,
+        armBeforeMs: 5000,
+        refreshPolicy: "onceAtStart",
+        refreshIntervalMs: 500,
+        maxWaitMs: 10000,
+        clickWhen: { visible: true, notDisabled: true },
+      },
+    });
   });
 });

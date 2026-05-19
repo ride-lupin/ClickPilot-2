@@ -48,6 +48,7 @@ pub fn enqueue_existing_tab_run(
         require_active_tab: *require_active_tab,
         login_check_url: login_check_url.clone(),
         login_success_selector: login_success_selector.clone(),
+        fast_click: task.fast_click.clone().filter(|settings| settings.enabled),
         steps: steps.clone(),
     });
 

@@ -10,8 +10,37 @@ pub struct AutomationTask {
     pub steps: Vec<AutomationStep>,
     pub safety: Safety,
     pub run_target: BrowserRunTarget,
+    #[serde(default)]
+    pub fast_click: Option<FastClickSettings>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FastClickSettings {
+    pub enabled: bool,
+    pub arm_before_ms: u64,
+    pub refresh_policy: FastClickRefreshPolicy,
+    pub refresh_interval_ms: u64,
+    pub max_wait_ms: u64,
+    pub click_when: FastClickCondition,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FastClickRefreshPolicy {
+    None,
+    OnceAtStart,
+    RepeatAfterStart,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FastClickCondition {
+    pub visible: bool,
+    pub not_disabled: bool,
+    pub text_includes: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

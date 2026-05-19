@@ -24,6 +24,19 @@ export type BrowserRefreshStep = {
 
 export type BrowserStep = BrowserElementStep | BrowserRefreshStep;
 
+export type FastClickSettings = {
+  enabled: boolean;
+  armBeforeMs: number;
+  refreshPolicy: "none" | "onceAtStart" | "repeatAfterStart";
+  refreshIntervalMs: number;
+  maxWaitMs: number;
+  clickWhen: {
+    visible: boolean;
+    notDisabled: boolean;
+    textIncludes?: string;
+  };
+};
+
 type TabLike = {
   id?: number;
   url?: string;
@@ -108,6 +121,72 @@ export async function runStepsInTab(
   }
 
   return { status: "success", clickedSteps };
+}
+
+export async function runFastClickInTab(
+  api: ChromeExecutionApi,
+  tab: TabLike,
+  steps: BrowserStep[],
+  settings: FastClickSettings,
+  options: StepRunOptions = {},
+): Promise<Record<string, unknown>> {
+  if (!tab.id) {
+    return { status: "failed", reason: "matchingTabNotFound", message: "No matching tab was found.", clickedSteps: 0 };
+  }
+
+  const step = steps.find((candidate) => candidate.kind !== "browserRefresh");
+  if (!step) {
+    return { status: "failed", reason: "elementNotFound", message: "Fast click mode requires a browser element step.", clickedSteps: 0 };
+  }
+
+  const startedAt = Date.now();
+  if (settings.refreshPolicy === "onceAtStart") {
+    const refreshResult = await reloadAndWait(api, tab.id, step.urlPattern, settings.maxWaitMs, options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100);
+    if (!refreshResult.ok) {
+      return { status: "failed", reason: "navigationFailed", message: "Tab did not finish loading after refresh.", clickedSteps: 0 };
+    }
+  }
+
+  if (settings.refreshPolicy === "repeatAfterStart") {
+    const deadline = Date.now() + settings.maxWaitMs;
+    while (Date.now() < deadline) {
+      const result = await armFastClick(api, tab.id, step, settings).catch(() => null);
+      if (result && result.status !== "failed") return result;
+      await reloadAndWait(api, tab.id, step.urlPattern, settings.maxWaitMs, options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100);
+      await delay(Math.max(500, settings.refreshIntervalMs));
+    }
+    return { status: "failed", reason: "timeout", message: "Fast click timed out while repeatedly refreshing.", clickedSteps: 0 };
+  }
+
+  const remainingWaitMs = Math.max(1000, settings.maxWaitMs - (Date.now() - startedAt));
+  return armFastClick(api, tab.id, step, { ...settings, maxWaitMs: remainingWaitMs });
+}
+
+async function armFastClick(
+  api: ChromeExecutionApi,
+  tabId: number,
+  step: BrowserElementStep,
+  settings: FastClickSettings,
+): Promise<Record<string, unknown>> {
+  await api.scripting.executeScript({ target: { tabId }, files: ["src/content.js"] }).catch(() => undefined);
+  const response = await api.tabs.sendMessage(tabId, { type: "CLICKPILOT_ARM_FAST_CLICK", step, settings });
+  return response && typeof response === "object" ? (response as Record<string, unknown>) : {};
+}
+
+async function reloadAndWait(
+  api: ChromeExecutionApi,
+  tabId: number,
+  urlPattern: string | undefined,
+  timeoutMs: number,
+  pollIntervalMs: number,
+): Promise<{ ok: true } | { ok: false }> {
+  if (!api.tabs.reload) return { ok: false };
+  await api.tabs.reload(tabId);
+  if (!urlPattern) {
+    await delay(pollIntervalMs);
+    return { ok: true };
+  }
+  return waitForTabUrl(api, tabId, urlPattern, { timeoutMs, pollIntervalMs });
 }
 
 async function runRefreshStep(

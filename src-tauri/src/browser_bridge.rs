@@ -7,7 +7,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::AutomationStep;
+use crate::models::{AutomationStep, FastClickSettings};
 
 const PAIRING_TOKEN_TTL: Duration = Duration::from_secs(600);
 
@@ -47,6 +47,7 @@ pub struct ExistingTabExecutionRequest {
     pub require_active_tab: bool,
     pub login_check_url: Option<String>,
     pub login_success_selector: Option<String>,
+    pub fast_click: Option<FastClickSettings>,
     pub steps: Vec<AutomationStep>,
 }
 
@@ -239,6 +240,7 @@ mod tests {
             require_active_tab: false,
             login_check_url: None,
             login_success_selector: None,
+            fast_click: None,
             steps: vec![],
         });
 
