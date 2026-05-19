@@ -31,7 +31,9 @@ pub fn enqueue_existing_tab_run(
         .steps
         .iter()
         .filter_map(|step| match step {
-            AutomationStep::BrowserElement(step) => Some(step.clone()),
+            AutomationStep::BrowserElement(_) | AutomationStep::BrowserRefresh(_) => {
+                Some(step.clone())
+            }
             AutomationStep::ScreenCoordinate(_) => None,
         })
         .collect::<Vec<_>>();

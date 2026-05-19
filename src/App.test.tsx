@@ -120,6 +120,18 @@ describe("ClickPilot task workflow", () => {
     expect(within(editor).getByText("현재 저장 안 됨")).toBeInTheDocument();
   });
 
+  it("adds a refresh step to the draft", async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "새 작업" }));
+    await userEvent.click(screen.getByRole("button", { name: "새로고침 단계 추가" }));
+
+    const editor = screen.getByLabelText("작업 편집");
+    expect(within(editor).getByText("새로고침")).toBeInTheDocument();
+    expect(within(editor).getByText("현재 탭 다시 로드")).toBeInTheDocument();
+    expect(within(editor).getByText("현재 저장 안 됨")).toBeInTheDocument();
+  });
+
   it("shows editable schedule input fields", async () => {
     render(<App />);
 

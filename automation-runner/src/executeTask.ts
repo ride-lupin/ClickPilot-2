@@ -1,6 +1,6 @@
 import { chromium } from "playwright-core";
 import type { Page } from "playwright-core";
-import type { BrowserElementStep, RunnerRequest, RunnerResult } from "./protocol.js";
+import type { BrowserElementStep, BrowserRefreshStep, RunnerRequest, RunnerResult } from "./protocol.js";
 import { resolveLocator } from "./selector.js";
 import { verifyLogin } from "./loginCheck.js";
 import { saveScreenshot } from "./screenshot.js";
@@ -24,12 +24,12 @@ export async function executeTask(request: RunnerRequest): Promise<RunnerResult>
     }
 
     for (const step of request.steps) {
-      const result = await executeStep(page, step);
+      const result = step.kind === "browserRefresh" ? await executeRefreshStep(page, step) : await executeStep(page, step);
       if (!result.ok) {
         const screenshotPath = await saveScreenshot(page, request.screenshotDir, result.reason);
         return { status: "failed", reason: result.reason, message: result.message, screenshotPath, clickedSteps };
       }
-      clickedSteps += 1;
+      if (step.kind !== "browserRefresh") clickedSteps += 1;
       await page.waitForTimeout(step.delayAfterMs);
     }
 
@@ -47,6 +47,15 @@ export async function executeTask(request: RunnerRequest): Promise<RunnerResult>
   } finally {
     await context.close();
   }
+}
+
+async function executeRefreshStep(page: Page, step: BrowserRefreshStep) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  if (step.urlPattern) {
+    const ok = await waitForPageUrl(page, step.urlPattern, step.wait.timeoutMs, step.wait.pollIntervalMs);
+    if (!ok) return { ok: false as const, reason: "navigationFailed" as const, message: `Page did not reach ${step.urlPattern} after refresh.` };
+  }
+  return { ok: true as const };
 }
 
 async function executeStep(page: Page, step: BrowserElementStep) {
@@ -71,4 +80,19 @@ async function executeStep(page: Page, step: BrowserElementStep) {
 function urlFromPattern(pattern?: string): string | null {
   if (!pattern) return null;
   return pattern.replace(/\*.*$/, "");
+}
+
+async function waitForPageUrl(page: Page, pattern: string, timeoutMs: number, pollIntervalMs: number) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (urlMatches(page.url(), pattern)) return true;
+    await page.waitForTimeout(pollIntervalMs);
+  }
+  return false;
+}
+
+function urlMatches(url: string, pattern: string) {
+  if (url === pattern) return true;
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return new RegExp(`^${escaped}$`).test(url);
 }

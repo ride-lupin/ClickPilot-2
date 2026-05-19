@@ -1,4 +1,4 @@
-import { sendExecuteStepsWithFallback } from "./execution";
+import { runStepsInTab, urlMatches, type BrowserStep } from "./execution";
 
 type ExistingTabExecutionRequest = {
   executionId: string;
@@ -7,7 +7,7 @@ type ExistingTabExecutionRequest = {
   browser: "chrome" | "edge" | "any";
   tabUrlPattern: string;
   requireActiveTab: boolean;
-  steps: unknown[];
+  steps: BrowserStep[];
 };
 
 let pollingInterval: number | undefined;
@@ -130,7 +130,7 @@ async function runExistingTab(request: ExistingTabExecutionRequest) {
   }
 
   await revealTab(tab);
-  const response = await sendExecuteStepsWithFallback(chrome, tab.id, request.steps);
+  const response = await runStepsInTab(chrome, tab, request.steps);
   const screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
   return {
     executionId: request.executionId,
@@ -147,27 +147,5 @@ async function revealTab(tab: chrome.tabs.Tab) {
   }
   if (tab.id !== undefined) {
     await chrome.tabs.update(tab.id, { active: true }).catch(() => undefined);
-  }
-}
-
-function urlMatches(url: string, pattern: string) {
-  if (url === pattern) return true;
-
-  const normalizedUrl = normalizeComparableUrl(url);
-  const normalizedPattern = normalizeComparableUrl(pattern);
-  if (normalizedUrl && normalizedPattern && normalizedUrl === normalizedPattern) return true;
-
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
-  return new RegExp(`^${escaped}$`).test(url);
-}
-
-function normalizeComparableUrl(value: string) {
-  if (value.includes("*")) return null;
-  try {
-    const parsed = new URL(value);
-    const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
-    return `${parsed.origin}${pathname}`;
-  } catch {
-    return null;
   }
 }

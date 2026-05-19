@@ -124,6 +124,7 @@ pub struct Safety {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AutomationStep {
     BrowserElement(BrowserElementStep),
+    BrowserRefresh(BrowserRefreshStep),
     ScreenCoordinate(ScreenCoordinateStep),
 }
 
@@ -137,6 +138,14 @@ pub struct BrowserElementStep {
     pub click_offset_ratio: OffsetRatio,
     pub wait: BrowserWaitPolicy,
     pub retry: BrowserRetryPolicy,
+    pub delay_after_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserRefreshStep {
+    pub url_pattern: Option<String>,
+    pub wait: BrowserWaitPolicy,
     pub delay_after_ms: u64,
 }
 

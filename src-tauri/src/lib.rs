@@ -95,4 +95,20 @@ mod tests {
 
         assert_eq!(error.code, "browser_poll_interval_invalid");
     }
+
+    #[test]
+    fn refresh_step_is_valid_without_selector_candidates() {
+        let mut task = browser_task_fixture();
+        task.steps = vec![AutomationStep::BrowserRefresh(BrowserRefreshStep {
+            url_pattern: Some("https://example.com/apply*".into()),
+            wait: BrowserWaitPolicy {
+                timeout_ms: 15000,
+                poll_interval_ms: 100,
+                refresh_before_wait: false,
+            },
+            delay_after_ms: 500,
+        })];
+
+        validate_task(&task).unwrap();
+    }
 }

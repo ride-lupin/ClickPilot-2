@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::models::{BrowserElementStep, BrowserKind};
+use crate::models::{AutomationStep, BrowserKind};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +17,7 @@ pub struct RunnerRequest {
     pub browser: BrowserKind,
     pub login_check_url: Option<String>,
     pub login_success_selector: Option<String>,
-    pub steps: Vec<BrowserElementStep>,
+    pub steps: Vec<AutomationStep>,
     pub screenshot_dir: String,
 }
 

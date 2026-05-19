@@ -59,6 +59,17 @@ pub fn validate_task(task: &AutomationTask) -> Result<(), ValidationError> {
                     ));
                 }
             }
+            AutomationStep::BrowserRefresh(step) => {
+                if let Some(url_pattern) = &step.url_pattern {
+                    if !is_http_pattern(url_pattern) {
+                        return Err(error(
+                            "browser_refresh_url_invalid",
+                            "Refresh step URL pattern must start with http:// or https://",
+                        ));
+                    }
+                }
+                validate_wait_policy(&step.wait)?;
+            }
             AutomationStep::ScreenCoordinate(step) => {
                 if step.click_count == 0 {
                     return Err(error(
@@ -70,6 +81,22 @@ pub fn validate_task(task: &AutomationTask) -> Result<(), ValidationError> {
         }
     }
 
+    Ok(())
+}
+
+fn validate_wait_policy(wait: &crate::models::BrowserWaitPolicy) -> Result<(), ValidationError> {
+    if !(1000..=120000).contains(&wait.timeout_ms) {
+        return Err(error(
+            "browser_wait_timeout_invalid",
+            "Wait timeout must be between 1000 and 120000ms",
+        ));
+    }
+    if !(50..=5000).contains(&wait.poll_interval_ms) {
+        return Err(error(
+            "browser_poll_interval_invalid",
+            "Poll interval must be between 50 and 5000ms",
+        ));
+    }
     Ok(())
 }
 

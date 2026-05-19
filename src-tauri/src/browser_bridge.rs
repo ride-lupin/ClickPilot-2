@@ -7,7 +7,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::BrowserElementStep;
+use crate::models::AutomationStep;
 
 const PAIRING_TOKEN_TTL: Duration = Duration::from_secs(600);
 
@@ -47,7 +47,7 @@ pub struct ExistingTabExecutionRequest {
     pub require_active_tab: bool,
     pub login_check_url: Option<String>,
     pub login_success_selector: Option<String>,
-    pub steps: Vec<BrowserElementStep>,
+    pub steps: Vec<AutomationStep>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,6 +10,7 @@ type Props = {
   onChange: (task: AutomationTask) => void;
   onSave: () => void;
   onDeleteStep: (index: number) => void;
+  onAddRefreshStep: () => void;
   onOpenProfile: (target: ManagedBrowserProfileTarget) => Promise<void>;
   onCheckLogin: (target: BrowserRunTarget) => Promise<LoginCheckResult>;
 };
@@ -20,6 +21,7 @@ export function TaskEditor({
   onChange,
   onSave,
   onDeleteStep,
+  onAddRefreshStep,
   onOpenProfile,
   onCheckLogin,
 }: Props) {
@@ -109,6 +111,7 @@ export function TaskEditor({
       <StepEditor
         steps={draft.steps}
         onDeleteStep={onDeleteStep}
+        onAddRefreshStep={onAddRefreshStep}
       />
       <LoginCheckPanel target={draft.runTarget} onOpenProfile={onOpenProfile} onCheckLogin={onCheckLogin} />
       {saveFeedback && <p className={`save-feedback ${saveFeedback.kind}`}>{saveFeedback.message}</p>}

@@ -23,7 +23,7 @@ export type AutomationTask = {
   updatedAt: string;
 };
 
-export type AutomationStep = BrowserElementStep | ScreenCoordinateStep;
+export type AutomationStep = BrowserElementStep | BrowserRefreshStep | ScreenCoordinateStep;
 
 export type BrowserElementStep = {
   kind: "browserElement";
@@ -34,6 +34,13 @@ export type BrowserElementStep = {
   clickOffsetRatio: { x: number; y: number };
   wait: BrowserWaitPolicy;
   retry: BrowserRetryPolicy;
+  delayAfterMs: number;
+};
+
+export type BrowserRefreshStep = {
+  kind: "browserRefresh";
+  urlPattern?: string;
+  wait: BrowserWaitPolicy;
   delayAfterMs: number;
 };
 

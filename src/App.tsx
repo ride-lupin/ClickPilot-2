@@ -1,4 +1,4 @@
-import { CalendarClock, Play, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -58,6 +58,14 @@ function toBrowserStep(capture: CapturedBrowserElement) {
     clickOffsetRatio: capture.clickOffsetRatio,
     wait: { timeoutMs: 15000, pollIntervalMs: 100, refreshBeforeWait: true },
     retry: { maxAttempts: 3, retryDelayMs: 250 },
+    delayAfterMs: 500,
+  };
+}
+
+function browserRefreshStep() {
+  return {
+    kind: "browserRefresh" as const,
+    wait: { timeoutMs: 15000, pollIntervalMs: 100, refreshBeforeWait: false },
     delayAfterMs: 500,
   };
 }
@@ -164,6 +172,11 @@ export default function App() {
     setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
   }
 
+  function addRefreshStep() {
+    setDraft((current) => (current ? { ...current, steps: [...current.steps, browserRefreshStep()] } : current));
+    setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
+  }
+
   function handleDraftChange(task: AutomationTask) {
     setDraft(task);
     setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
@@ -250,6 +263,13 @@ export default function App() {
                       <strong>{step.textHint || "브라우저 요소"}</strong>
                       <span>{step.urlPattern}</span>
                     </p>
+                  ) : step.kind === "browserRefresh" ? (
+                    <p key={index}>
+                      <strong>
+                        <RefreshCw size={14} /> 새로고침
+                      </strong>
+                      <span>{step.urlPattern || "현재 탭 다시 로드"}</span>
+                    </p>
                   ) : (
                     <p key={index}>x {step.x} · y {step.y}</p>
                   ),
@@ -274,6 +294,7 @@ export default function App() {
               onChange={handleDraftChange}
               onSave={() => void handleSave()}
               onDeleteStep={deleteDraftStep}
+              onAddRefreshStep={addRefreshStep}
               onOpenProfile={openBrowserProfile}
               onCheckLogin={checkBrowserLogin}
             />

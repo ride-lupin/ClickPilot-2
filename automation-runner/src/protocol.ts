@@ -5,11 +5,14 @@ export type RunnerRequest = {
   browser: "chrome" | "edge";
   loginCheckUrl?: string;
   loginSuccessSelector?: string;
-  steps: BrowserElementStep[];
+  steps: BrowserStep[];
   screenshotDir: string;
 };
 
+export type BrowserStep = BrowserElementStep | BrowserRefreshStep;
+
 export type BrowserElementStep = {
+  kind?: "browserElement";
   urlPattern: string;
   selectorCandidates: SelectorCandidate[];
   textHint?: string;
@@ -17,6 +20,13 @@ export type BrowserElementStep = {
   clickOffsetRatio: { x: number; y: number };
   wait: BrowserWaitPolicy;
   retry: BrowserRetryPolicy;
+  delayAfterMs: number;
+};
+
+export type BrowserRefreshStep = {
+  kind: "browserRefresh";
+  urlPattern?: string;
+  wait: BrowserWaitPolicy;
   delayAfterMs: number;
 };
 
