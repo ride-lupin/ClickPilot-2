@@ -2,6 +2,8 @@
 
 ClickPilot is a Windows/macOS desktop app for office-user browser automation. It lets a user create a task, choose a Chrome/Edge page button visually, keep a coordinate fallback step when needed, schedule the task, verify login before execution, and inspect execution logs with screenshots.
 
+Korean office-user guide: `docs/clickpilot-user-guide.ko.md`
+
 ## Stack
 
 - Tauri 2 desktop shell
