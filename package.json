@@ -1,0 +1,40 @@
+{
+  "name": "clickpilot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/run-vite-safe-root.mjs vite",
+    "build": "tsc && node scripts/run-vite-safe-root.mjs vite build",
+    "lint": "tsc --noEmit",
+    "test": "node scripts/run-vite-safe-root.mjs vitest run",
+    "test:watch": "node scripts/run-vite-safe-root.mjs vitest",
+    "tauri": "tauri",
+    "build:extension": "npm --prefix extension run build",
+    "build:runner": "npm --prefix automation-runner run build",
+    "package:runner:mac": "npm --prefix automation-runner run package:mac",
+    "package:runner:win": "npm --prefix automation-runner run package:win",
+    "build:desktop": "npm run build && npm run tauri build",
+    "build:all:mac": "npm run build:extension && npm run build:runner && npm run package:runner:mac && npm run build:desktop",
+    "build:all:win": "npm run build:extension && npm run build:runner && npm run package:runner:win && npm run build:desktop"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "latest",
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "latest",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "jsdom": "latest",
+    "vitest": "latest"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+src-tauri/target/
+extension/node_modules/
+extension/dist/
+automation-runner/node_modules/
+automation-runner/dist/
+automation-runner/dist-sidecar/*
+!automation-runner/dist-sidecar/clickpilot-automation-runner-placeholder
+.DS_Store

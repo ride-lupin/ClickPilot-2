@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>ClickPilot</title>
+    <style>
+      body {
+        width: 280px;
+        margin: 0;
+        padding: 14px;
+        font-family: system-ui, sans-serif;
+        color: #172026;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+      input,
+      button {
+        min-height: 34px;
+        border-radius: 6px;
+        border: 1px solid #d8dfdb;
+      }
+      button {
+        width: 100%;
+        background: #14705d;
+        color: #fff;
+        font-weight: 800;
+      }
+      #status {
+        color: #637074;
+      }
+    </style>
+  </head>
+  <body>
+    <label>
+      브릿지 포트
+      <input id="port" value="27183" />
+    </label>
+    <label>
+      Pairing token
+      <input id="pairingToken" />
+    </label>
+    <button id="save">연결 저장</button>
+    <p id="status">대기 중</p>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>
