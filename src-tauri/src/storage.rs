@@ -1,6 +1,11 @@
 use std::{fs, path::PathBuf};
 
-use crate::models::{AutomationTask, ExecutionLog};
+use uuid::Uuid;
+
+use crate::{
+    browser_bridge::ExistingTabExecutionResult,
+    models::{AutomationTask, ExecutionLog, ExecutionStatus},
+};
 
 #[derive(Debug, Clone)]
 pub struct Storage {
@@ -34,6 +39,10 @@ impl Storage {
 
     pub fn save_task(&self, task: AutomationTask) -> Result<AutomationTask, StorageError> {
         let mut state = self.read_state()?;
+        let mut task = task;
+        if task.id.trim().is_empty() {
+            task.id = format!("task-{}", Uuid::new_v4());
+        }
         state.tasks.retain(|candidate| candidate.id != task.id);
         state.tasks.push(task.clone());
         self.write_state(&state)?;
@@ -56,6 +65,28 @@ impl Storage {
         self.write_state(&state)
     }
 
+    pub fn append_existing_tab_result_log(
+        &self,
+        result: ExistingTabExecutionResult,
+    ) -> Result<(), StorageError> {
+        let status = if result.status == "success" {
+            ExecutionStatus::Success
+        } else {
+            ExecutionStatus::Failed
+        };
+        self.append_execution_log(ExecutionLog {
+            id: Uuid::new_v4().to_string(),
+            task_id: result.task_id,
+            task_name: result.task_name,
+            status,
+            message: result.message,
+            failure_reason: result.reason,
+            screenshot_path: result.screenshot_data_url,
+            started_at: chrono::Utc::now().to_rfc3339(),
+            finished_at: Some(chrono::Utc::now().to_rfc3339()),
+        })
+    }
+
     fn state_path(&self) -> PathBuf {
         self.root.join("clickpilot-state.json")
     }
@@ -68,7 +99,12 @@ impl Storage {
                 ..StoredState::default()
             });
         }
-        Ok(serde_json::from_slice(&fs::read(path)?)?)
+        let mut state: StoredState = serde_json::from_slice(&fs::read(path)?)?;
+        let changed = assign_missing_task_ids(&mut state.tasks);
+        if changed {
+            self.write_state(&state)?;
+        }
+        Ok(state)
     }
 
     fn write_state(&self, state: &StoredState) -> Result<(), StorageError> {
@@ -76,6 +112,17 @@ impl Storage {
         fs::write(self.state_path(), serde_json::to_vec_pretty(state)?)?;
         Ok(())
     }
+}
+
+fn assign_missing_task_ids(tasks: &mut [AutomationTask]) -> bool {
+    let mut changed = false;
+    for task in tasks {
+        if task.id.trim().is_empty() {
+            task.id = format!("task-{}", Uuid::new_v4());
+            changed = true;
+        }
+    }
+    changed
 }
 
 #[cfg(test)]
@@ -127,5 +174,45 @@ mod tests {
 
         storage.delete_task("task-1").unwrap();
         assert!(storage.list_tasks().unwrap().is_empty());
+    }
+
+    #[test]
+    fn appends_existing_tab_result_log() {
+        let dir = tempdir().unwrap();
+        let storage = Storage::new(dir.path().into());
+
+        storage
+            .append_existing_tab_result_log(crate::browser_bridge::ExistingTabExecutionResult {
+                execution_id: "execution-1".into(),
+                task_id: "task-1".into(),
+                task_name: "예약 작업".into(),
+                status: "failed".into(),
+                reason: Some("elementNotFound".into()),
+                message: Some("No element matched.".into()),
+                clicked_steps: 0,
+                screenshot_data_url: Some("data:image/png;base64,abc".into()),
+            })
+            .unwrap();
+
+        let logs = storage.list_execution_logs().unwrap();
+        assert_eq!(logs[0].task_id, "task-1");
+        assert_eq!(logs[0].status, ExecutionStatus::Failed);
+        assert_eq!(logs[0].failure_reason.as_deref(), Some("elementNotFound"));
+        assert_eq!(
+            logs[0].screenshot_path.as_deref(),
+            Some("data:image/png;base64,abc")
+        );
+        assert!(logs[0].finished_at.is_some());
+    }
+
+    #[test]
+    fn save_task_assigns_missing_id() {
+        let dir = tempdir().unwrap();
+        let storage = Storage::new(dir.path().into());
+
+        let saved = storage.save_task(task_fixture("")).unwrap();
+
+        assert!(saved.id.starts_with("task-"));
+        assert_eq!(storage.list_tasks().unwrap()[0].id, saved.id);
     }
 }

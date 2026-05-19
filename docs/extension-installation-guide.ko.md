@@ -44,7 +44,7 @@ npm --prefix extension run build
 6. `Pairing token`에 ClickPilot 앱에서 받은 토큰을 입력합니다.
 7. `Save`를 클릭하고 상태가 `연결됨`으로 바뀌는지 확인합니다.
 
-현재 pairing token은 발급 후 120초 동안 유효합니다. 연결 실패가 나오면 ClickPilot 앱에서 `브라우저 버튼 선택`을 다시 눌러 새 토큰을 받은 뒤 저장합니다.
+현재 pairing token은 발급 후 10분 동안 초기 연결 승인용으로 유효합니다. 연결 후에는 앱을 종료하거나 연결 해제할 때까지 유지됩니다. 연결 실패가 나오면 ClickPilot 앱에서 `토큰 갱신`을 눌러 새 토큰을 받은 뒤 저장합니다.
 
 ## 버튼 선택 확인
 
@@ -61,15 +61,14 @@ npm --prefix extension run build
 1. ClickPilot 앱과 브라우저를 닫습니다.
 2. 새 `extension/dist` 폴더를 기존 위치에 덮어씁니다.
 3. `chrome://extensions` 또는 `edge://extensions`에서 ClickPilot 확장프로그램의 새로고침 버튼을 클릭합니다.
-4. 연결 상태가 끊겼다면 ClickPilot 앱에서 새 token을 받아 다시 저장합니다.
+4. 앱을 재시작했거나 연결 상태가 끊겼다면 ClickPilot 앱에서 새 token을 받아 다시 저장합니다.
 
 폴더 위치를 옮긴 경우에는 기존 확장프로그램을 제거한 뒤 새 `extension/dist`를 다시 `Load unpacked`로 설치합니다.
 
 ## 문제 해결
 
-- `연결 실패`: ClickPilot 앱이 실행 중인지, 포트가 `27183`인지, token이 120초 이내에 발급된 값인지 확인합니다.
+- `연결 실패`: ClickPilot 앱이 실행 중인지, 포트가 `27183`인지, token이 10분 이내에 발급된 값인지 확인합니다.
 - 확장프로그램이 목록에 보이지 않음: `extension/dist/manifest.json`이 있는 폴더를 선택했는지 확인합니다. `extension` 상위 폴더를 선택하면 설치되지 않습니다.
 - 버튼 선택이 ClickPilot에 표시되지 않음: 대상 사이트 탭을 새로고침하고, 확장프로그램을 새로고침한 뒤 다시 선택합니다.
 - 기존 탭 실행이 실패함: 작업의 URL 패턴이 현재 열린 탭 URL과 맞는지, 대상 탭이 닫히지 않았는지 확인합니다.
 - 회사 정책으로 개발자 모드가 막힘: Chrome Web Store 비공개 배포, Edge Add-ons 숨김 배포, 엔터프라이즈 정책 배포 중 하나로 전환해야 합니다.
-

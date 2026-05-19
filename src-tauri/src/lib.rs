@@ -1,12 +1,14 @@
-pub mod models;
-pub mod validation;
-pub mod storage;
-pub mod schedule;
-pub mod runner;
-pub mod browser_bridge;
 pub mod automation_runner;
-pub mod existing_tab_runner;
+pub mod browser_bridge;
+pub mod browser_bridge_server;
 pub mod commands;
+pub mod existing_tab_runner;
+pub mod models;
+pub mod runner;
+pub mod schedule;
+pub mod scheduler;
+pub mod storage;
+pub mod validation;
 
 #[cfg(test)]
 mod tests {

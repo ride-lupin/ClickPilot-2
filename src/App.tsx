@@ -2,13 +2,13 @@ import { CalendarClock, Play, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   browserBridgeStatus,
-  capturePosition,
   checkBrowserLogin,
   deleteTask,
   getLatestBrowserCapture,
   listExecutionLogs,
   listTasks,
   openBrowserProfile,
+  requestBrowserCapture,
   saveTask,
   startBrowserCapture,
   startTaskNow,
@@ -18,9 +18,9 @@ import { TaskEditor } from "./components/TaskEditor";
 import type {
   AutomationTask,
   BrowserBridgeStatus,
+  BrowserCaptureSession,
   CapturedBrowserElement,
   ExecutionLog,
-  ScreenCoordinateStep,
 } from "./types";
 
 function newTask(): AutomationTask {
@@ -59,14 +59,18 @@ function toBrowserStep(capture: CapturedBrowserElement) {
   };
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<AutomationTask[]>([]);
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [draft, setDraft] = useState<AutomationTask | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BrowserBridgeStatus | null>(null);
-  const [latestCapture, setLatestCapture] = useState<CapturedBrowserElement | null>(null);
+  const [captureSession, setCaptureSession] = useState<BrowserCaptureSession | null>(null);
   const [message, setMessage] = useState("");
-  const [captureMessage, setCaptureMessage] = useState("");
+  const [saveFeedback, setSaveFeedback] = useState<{ kind: "success" | "warning" | "error"; message: string } | null>(null);
 
   async function refresh() {
     const [loadedTasks, loadedLogs, status] = await Promise.all([listTasks(), listExecutionLogs(), browserBridgeStatus()]);
@@ -77,16 +81,26 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
+    const interval = window.setInterval(() => {
+      void refresh();
+    }, 3000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const selectedTask = useMemo(() => draft?.id ? tasks.find((task) => task.id === draft.id) : null, [draft?.id, tasks]);
 
   async function handleSave() {
     if (!draft) return;
-    const saved = await saveTask(draft);
-    setDraft(saved);
-    setMessage("작업이 저장되었습니다.");
-    await refresh();
+    try {
+      const saved = await saveTask(draft);
+      setDraft(saved);
+      setSaveFeedback({ kind: "success", message: "저장되었습니다." });
+      setMessage("작업이 저장되었습니다.");
+      await refresh();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      setSaveFeedback({ kind: "error", message: `저장 실패: ${reason}` });
+    }
   }
 
   async function handleDelete(task: AutomationTask) {
@@ -105,34 +119,46 @@ export default function App() {
   }
 
   async function handleStartBrowserCapture() {
-    await startBrowserCapture();
-    const capture = await getLatestBrowserCapture();
-    if (!capture) {
-      setMessage("확장 프로그램에서 버튼을 선택하면 여기에 표시됩니다.");
-      return;
-    }
-    setLatestCapture(capture);
-    if (draft) setDraft({ ...draft, steps: [...draft.steps, toBrowserStep(capture)] });
+    const session = await startBrowserCapture();
+    setCaptureSession(session);
+    setSaveFeedback((current) => current ?? { kind: "warning", message: "현재 저장 안 됨" });
+    setMessage("새 pairing token을 발급했습니다. 10분 안에 확장프로그램에 저장한 뒤 브라우저 버튼 선택을 누르세요.");
+    await refresh();
   }
 
-  async function handleCaptureCoordinate() {
-    window.setTimeout(async () => {
-      const position = await capturePosition();
-      const step: ScreenCoordinateStep = {
-        kind: "screenCoordinate",
-        x: position.x,
-        y: position.y,
-        button: "left",
-        clickCount: 1,
-        delayAfterMs: 500,
-      };
-      setDraft((current) => (current ? { ...current, steps: [...current.steps, step] } : current));
-      setCaptureMessage("좌표 캡처가 완료되었습니다.");
-    }, 2000);
+  async function handleRequestBrowserCapture() {
+    try {
+      const status = await requestBrowserCapture();
+      setBridgeStatus(status);
+      setMessage("브라우저에서 선택할 버튼을 클릭하세요.");
+    } catch {
+      setMessage("먼저 토큰 갱신 후 확장프로그램에서 연결 저장을 완료하세요.");
+      return;
+    }
+    let capture: CapturedBrowserElement | null = null;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      capture = await getLatestBrowserCapture();
+      if (capture) break;
+      await delay(1000);
+    }
+    if (!capture) {
+      setMessage("선택된 버튼이 아직 없습니다. 확장프로그램 연결 상태를 확인한 뒤 다시 시도하세요.");
+      return;
+    }
+    if (draft) {
+      setDraft({ ...draft, steps: [...draft.steps, toBrowserStep(capture)] });
+      setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
+    }
   }
 
   function deleteDraftStep(index: number) {
     setDraft((current) => (current ? { ...current, steps: current.steps.filter((_, stepIndex) => stepIndex !== index) } : current));
+    setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
+  }
+
+  function handleDraftChange(task: AutomationTask) {
+    setDraft(task);
+    setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
   }
 
   return (
@@ -142,7 +168,14 @@ export default function App() {
           <span>ClickPilot</span>
           <h1>브라우저 업무 자동화</h1>
         </div>
-        <button type="button" className="primary-button full-width" onClick={() => setDraft(newTask())}>
+        <button
+          type="button"
+          className="primary-button full-width"
+          onClick={() => {
+            setDraft(newTask());
+            setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
+          }}
+        >
           <Plus size={16} />
           새 작업
         </button>
@@ -150,7 +183,14 @@ export default function App() {
         <ul className="task-list">
           {tasks.map((task) => (
             <li key={task.id} className={selectedTask?.id === task.id ? "selected" : undefined}>
-              <button type="button" className="task-select" onClick={() => setDraft(task)}>
+              <button
+                type="button"
+                className="task-select"
+                onClick={() => {
+                  setDraft(task);
+                  setSaveFeedback(null);
+                }}
+              >
                 <strong>{task.name}</strong>
                 <span>
                   <CalendarClock size={14} /> 다음 실행
@@ -187,22 +227,16 @@ export default function App() {
             <TaskEditor
               draft={draft}
               bridgeStatus={bridgeStatus}
-              latestCapture={latestCapture}
-              captureMessage={captureMessage}
-              onChange={setDraft}
+              captureSession={captureSession}
+              saveFeedback={saveFeedback}
+              onChange={handleDraftChange}
               onSave={() => void handleSave()}
-              onStartBrowserCapture={() => void handleStartBrowserCapture()}
-              onCaptureCoordinate={() => void handleCaptureCoordinate()}
+              onRefreshPairingToken={() => void handleStartBrowserCapture()}
+              onRequestBrowserCapture={() => void handleRequestBrowserCapture()}
               onDeleteStep={deleteDraftStep}
               onOpenProfile={openBrowserProfile}
               onCheckLogin={checkBrowserLogin}
             />
-            {draft.id && (
-              <button type="button" className="secondary-button detail-run-button" aria-label="즉시 실행" onClick={() => void handleRun(draft)}>
-                <Play size={16} />
-                즉시 실행
-              </button>
-            )}
           </>
         ) : (
           <section className="empty-state">

@@ -3,17 +3,17 @@ import { BrowserCapturePanel } from "./BrowserCapturePanel";
 import { LoginCheckPanel } from "./LoginCheckPanel";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { StepEditor } from "./StepEditor";
-import type { BrowserBridgeStatus, CapturedBrowserElement, LoginCheckResult, ManagedBrowserProfileTarget } from "../types";
+import type { BrowserBridgeStatus, BrowserCaptureSession, LoginCheckResult, ManagedBrowserProfileTarget } from "../types";
 
 type Props = {
   draft: AutomationTask;
   bridgeStatus: BrowserBridgeStatus | null;
-  latestCapture: CapturedBrowserElement | null;
-  captureMessage?: string;
+  captureSession: BrowserCaptureSession | null;
+  saveFeedback: { kind: "success" | "warning" | "error"; message: string } | null;
   onChange: (task: AutomationTask) => void;
   onSave: () => void;
-  onStartBrowserCapture: () => void;
-  onCaptureCoordinate: () => void;
+  onRefreshPairingToken: () => void;
+  onRequestBrowserCapture: () => void;
   onDeleteStep: (index: number) => void;
   onOpenProfile: (target: ManagedBrowserProfileTarget) => Promise<void>;
   onCheckLogin: (target: BrowserRunTarget) => Promise<LoginCheckResult>;
@@ -22,12 +22,12 @@ type Props = {
 export function TaskEditor({
   draft,
   bridgeStatus,
-  latestCapture,
-  captureMessage,
+  captureSession,
+  saveFeedback,
   onChange,
   onSave,
-  onStartBrowserCapture,
-  onCaptureCoordinate,
+  onRefreshPairingToken,
+  onRequestBrowserCapture,
   onDeleteStep,
   onOpenProfile,
   onCheckLogin,
@@ -115,18 +115,23 @@ export function TaskEditor({
         )}
       </div>
       <ScheduleEditor value={draft.schedule} onChange={(schedule) => onChange({ ...draft, schedule })} />
-      <BrowserCapturePanel status={bridgeStatus} latestCapture={latestCapture} onStartCapture={onStartBrowserCapture} />
+      <BrowserCapturePanel
+        status={bridgeStatus}
+        captureSession={captureSession}
+        onRefreshToken={onRefreshPairingToken}
+        onRequestCapture={onRequestBrowserCapture}
+      />
       <StepEditor
         steps={draft.steps}
-        captureMessage={captureMessage}
-        latestCapture={latestCapture}
-        onCaptureCoordinate={onCaptureCoordinate}
         onDeleteStep={onDeleteStep}
       />
       <LoginCheckPanel target={draft.runTarget} onOpenProfile={onOpenProfile} onCheckLogin={onCheckLogin} />
-      <button type="button" className="primary-button save-button" onClick={onSave}>
-        저장
-      </button>
+      {saveFeedback && <p className={`save-feedback ${saveFeedback.kind}`}>{saveFeedback.message}</p>}
+      <div className="editor-actions">
+        <button type="button" className="primary-button save-button" onClick={onSave}>
+          저장
+        </button>
+      </div>
     </section>
   );
 }

@@ -2,7 +2,7 @@ use uuid::Uuid;
 
 use crate::{
     browser_bridge::{BrowserBridge, ExistingTabExecutionRequest},
-    models::{AutomationTask, AutomationStep, BrowserRunTarget},
+    models::{AutomationStep, AutomationTask, BrowserRunTarget},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -11,7 +11,10 @@ pub struct ExistingTabRunReceipt {
     pub browser_step_count: usize,
 }
 
-pub fn enqueue_existing_tab_run(bridge: &BrowserBridge, task: &AutomationTask) -> Option<ExistingTabRunReceipt> {
+pub fn enqueue_existing_tab_run(
+    bridge: &BrowserBridge,
+    task: &AutomationTask,
+) -> Option<ExistingTabRunReceipt> {
     let BrowserRunTarget::ExistingTab {
         browser,
         tab_url_pattern,

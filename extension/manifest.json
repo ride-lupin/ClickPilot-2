@@ -3,7 +3,7 @@
   "name": "ClickPilot Button Picker",
   "version": "0.1.0",
   "description": "Select browser buttons for ClickPilot scheduled automation.",
-  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "permissions": ["activeTab", "alarms", "scripting", "storage", "tabs"],
   "host_permissions": ["<all_urls>", "http://127.0.0.1:27183/*"],
   "background": {
     "service_worker": "src/background.js",

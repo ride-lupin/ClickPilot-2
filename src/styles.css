@@ -37,10 +37,21 @@ button {
   cursor: pointer;
 }
 
+.link-button {
+  display: inline;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #0645d8;
+  font: inherit;
+  text-decoration: underline;
+}
+
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-a:focus-visible {
+a:focus-visible,
+.link-button:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
@@ -118,6 +129,10 @@ a:focus-visible {
 .full-width,
 .save-button {
   width: 100%;
+}
+
+.editor-actions {
+  margin-top: 10px;
 }
 
 .status-message,
@@ -222,6 +237,13 @@ a:focus-visible {
   margin-bottom: 12px;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -274,7 +296,8 @@ select {
 }
 
 .step-row div,
-.capture-preview {
+.capture-preview,
+.pairing-fields {
   display: grid;
   gap: 4px;
 }
@@ -290,6 +313,39 @@ select {
   margin: 12px 0;
 }
 
+.pairing-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.pairing-fields p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.save-feedback {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.save-feedback.success {
+  background: #e7f5ee;
+  color: var(--success);
+}
+
+.save-feedback.warning {
+  background: #fff7e6;
+  color: #8a5a00;
+}
+
+.save-feedback.error {
+  background: #fdecec;
+  color: #b42318;
+}
+
 .log-list li {
   padding: 12px;
   margin-bottom: 10px;
@@ -301,8 +357,10 @@ select {
   gap: 10px;
 }
 
-.detail-run-button {
-  margin-top: 12px;
+.log-time {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 @media (max-width: 900px) {
@@ -314,5 +372,9 @@ select {
   .task-list-panel {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .editor-actions {
+    grid-template-columns: 1fr;
   }
 }

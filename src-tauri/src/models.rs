@@ -39,16 +39,78 @@ pub enum ExecutionStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum Schedule {
-    OneShot { run_at: String },
-    Daily { time_of_day: String },
-    Weekly { days: Vec<String>, time_of_day: String },
+    OneShot {
+        #[serde(alias = "run_at")]
+        run_at: String,
+    },
+    Daily {
+        #[serde(alias = "time_of_day")]
+        time_of_day: String,
+    },
+    Weekly {
+        days: Vec<String>,
+        #[serde(alias = "time_of_day")]
+        time_of_day: String,
+    },
     RepeatInterval {
+        #[serde(alias = "interval_ms")]
         interval_ms: u64,
+        #[serde(alias = "max_runs")]
         max_runs: Option<u32>,
+        #[serde(alias = "end_at")]
         end_at: Option<String>,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Schedule;
+
+    #[test]
+    fn schedule_accepts_frontend_camel_case_fields() {
+        let schedule: Schedule =
+            serde_json::from_value(serde_json::json!({ "type": "daily", "timeOfDay": "12:47" }))
+                .unwrap();
+
+        assert_eq!(
+            schedule,
+            Schedule::Daily {
+                time_of_day: "12:47".into()
+            }
+        );
+    }
+
+    #[test]
+    fn schedule_accepts_legacy_snake_case_fields() {
+        let schedule: Schedule =
+            serde_json::from_value(serde_json::json!({ "type": "daily", "time_of_day": "09:00" }))
+                .unwrap();
+
+        assert_eq!(
+            schedule,
+            Schedule::Daily {
+                time_of_day: "09:00".into()
+            }
+        );
+    }
+
+    #[test]
+    fn schedule_serializes_frontend_camel_case_fields() {
+        let schedule = Schedule::Daily {
+            time_of_day: "12:47".into(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(schedule).unwrap(),
+            serde_json::json!({ "type": "daily", "timeOfDay": "12:47" })
+        );
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,7 +204,11 @@ pub struct BrowserRetryPolicy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "mode", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "mode",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum BrowserRunTarget {
     ManagedProfile {
         browser: BrowserKind,

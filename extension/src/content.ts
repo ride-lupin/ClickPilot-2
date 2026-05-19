@@ -12,6 +12,10 @@ type BrowserElementStep = {
 
 let captureEnabled = false;
 let highlighted: HTMLElement | null = null;
+const pollingKeepaliveMs = 5000;
+
+globalThis.setInterval(() => void keepPollingAlive(), pollingKeepaliveMs);
+void keepPollingAlive();
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "CLICKPILOT_START_CAPTURE") {
@@ -88,21 +92,74 @@ async function clickStep(step: BrowserElementStep): Promise<{ ok: true } | { ok:
   for (let attempt = 0; attempt < step.retry.maxAttempts; attempt += 1) {
     const element = await waitForElement(step);
     if (element) {
-      const rect = element.getBoundingClientRect();
       element.scrollIntoView({ block: "center", inline: "center" });
-      element.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          cancelable: true,
-          clientX: rect.left + rect.width * step.clickOffsetRatio.x,
-          clientY: rect.top + rect.height * step.clickOffsetRatio.y,
-        }),
-      );
+      await delay(50);
+      showClickMarker(element, step.clickOffsetRatio);
+      await delay(120);
+      dispatchClickSequence(element, step.clickOffsetRatio);
       return { ok: true };
     }
     await delay(step.retry.retryDelayMs);
   }
   return { ok: false, reason: "elementNotFound" };
+}
+
+async function keepPollingAlive() {
+  const stored = (await chrome.storage.local.get(["port", "pairingToken"]).catch(() => ({}))) as {
+    port?: number;
+    pairingToken?: string;
+  };
+  if (!stored.port || !stored.pairingToken) return;
+  await chrome.runtime.sendMessage({ type: "CLICKPILOT_START_POLLING" }).catch(() => undefined);
+}
+
+function dispatchClickSequence(element: HTMLElement, ratio: { x: number; y: number }) {
+  const rect = element.getBoundingClientRect();
+  const clientX = rect.left + rect.width * ratio.x;
+  const clientY = rect.top + rect.height * ratio.y;
+  const base = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    clientX,
+    clientY,
+    button: 0,
+    buttons: 1,
+    view: window,
+  };
+
+  element.dispatchEvent(new PointerEvent("pointerdown", { ...base, pointerId: 1, pointerType: "mouse", isPrimary: true }));
+  element.dispatchEvent(new MouseEvent("mousedown", base));
+  element.dispatchEvent(new PointerEvent("pointerup", { ...base, pointerId: 1, pointerType: "mouse", isPrimary: true, buttons: 0 }));
+  element.dispatchEvent(new MouseEvent("mouseup", { ...base, buttons: 0 }));
+  element.click();
+}
+
+function showClickMarker(element: HTMLElement, ratio: { x: number; y: number }) {
+  const rect = element.getBoundingClientRect();
+  const marker = document.createElement("div");
+  marker.style.position = "fixed";
+  marker.style.left = `${rect.left + rect.width * ratio.x}px`;
+  marker.style.top = `${rect.top + rect.height * ratio.y}px`;
+  marker.style.width = "34px";
+  marker.style.height = "34px";
+  marker.style.marginLeft = "-17px";
+  marker.style.marginTop = "-17px";
+  marker.style.border = "3px solid #14b8a6";
+  marker.style.borderRadius = "999px";
+  marker.style.boxShadow = "0 0 0 6px rgba(20, 184, 166, 0.22)";
+  marker.style.background = "rgba(20, 184, 166, 0.12)";
+  marker.style.zIndex = "2147483647";
+  marker.style.pointerEvents = "none";
+  marker.style.transition = "transform 420ms ease, opacity 420ms ease";
+  marker.style.transform = "scale(0.55)";
+  document.documentElement.appendChild(marker);
+
+  requestAnimationFrame(() => {
+    marker.style.transform = "scale(1.35)";
+    marker.style.opacity = "0";
+  });
+  window.setTimeout(() => marker.remove(), 520);
 }
 
 async function waitForElement(step: BrowserElementStep): Promise<HTMLElement | null> {

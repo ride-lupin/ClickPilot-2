@@ -1,16 +1,23 @@
-use std::{path::PathBuf, sync::Mutex};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use clickpilot::{
-    browser_bridge::{BrowserBridge, BrowserBridgeStatus, BrowserCaptureSession, CapturedBrowserElement},
+    browser_bridge::{
+        BrowserBridge, BrowserBridgeStatus, BrowserCaptureSession, CapturedBrowserElement,
+    },
+    browser_bridge_server::start_browser_bridge_server,
     commands::{self, ExecutionStartResult, LoginCheckResult},
     models::{AutomationTask, BrowserRunTarget, ExecutionLog},
+    scheduler::start_scheduler,
     storage::Storage,
 };
 use serde::Serialize;
 use tauri::State;
 
 struct AppState {
-    storage: Mutex<Storage>,
+    storage: Arc<Mutex<Storage>>,
     browser_bridge: BrowserBridge,
 }
 
@@ -38,7 +45,8 @@ fn delete_task(state: State<AppState>, id: String) -> Result<(), String> {
 
 #[tauri::command]
 fn start_task_now(state: State<AppState>, id: String) -> Result<ExecutionStartResult, String> {
-    commands::start_task_now(&state.storage.lock().unwrap(), id).map_err(error_message)
+    commands::start_task_now(&state.storage.lock().unwrap(), &state.browser_bridge, id)
+        .map_err(error_message)
 }
 
 #[tauri::command]
@@ -54,6 +62,15 @@ fn browser_bridge_status(state: State<AppState>) -> BrowserBridgeStatus {
 #[tauri::command]
 fn start_browser_capture(state: State<AppState>) -> BrowserCaptureSession {
     commands::start_browser_capture(&state.browser_bridge)
+}
+
+#[tauri::command]
+fn request_browser_capture(state: State<AppState>) -> Result<BrowserBridgeStatus, String> {
+    if commands::request_browser_capture(&state.browser_bridge) {
+        Ok(commands::browser_bridge_status(&state.browser_bridge))
+    } else {
+        Err("pairing token is missing or expired".into())
+    }
 }
 
 #[tauri::command]
@@ -81,16 +98,57 @@ fn error_message(error: commands::AppError) -> String {
 }
 
 fn storage_root() -> PathBuf {
-    std::env::current_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join(".clickpilot")
+    storage_root_from_env(
+        std::env::var_os("HOME").map(PathBuf::from),
+        std::env::var_os("APPDATA").map(PathBuf::from),
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from),
+    )
+}
+
+fn storage_root_from_env(
+    home: Option<PathBuf>,
+    appdata: Option<PathBuf>,
+    xdg_data_home: Option<PathBuf>,
+) -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = (&appdata, &xdg_data_home);
+        return home
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("Library")
+            .join("Application Support")
+            .join("ClickPilot");
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        return appdata
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("ClickPilot");
+    }
+
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    {
+        if let Some(xdg_data_home) = xdg_data_home {
+            return xdg_data_home.join("clickpilot");
+        }
+        home.unwrap_or_else(|| PathBuf::from("."))
+            .join(".local")
+            .join("share")
+            .join("clickpilot")
+    }
 }
 
 fn main() {
+    let browser_bridge = BrowserBridge::new(27183);
+    let storage = Arc::new(Mutex::new(Storage::new(storage_root())));
+    start_browser_bridge_server(browser_bridge.clone(), storage.clone());
+    start_scheduler(storage.clone(), browser_bridge.clone());
+
     tauri::Builder::default()
         .manage(AppState {
-            storage: Mutex::new(Storage::new(storage_root())),
-            browser_bridge: BrowserBridge::new(27183),
+            storage,
+            browser_bridge,
         })
         .invoke_handler(tauri::generate_handler![
             list_tasks,
@@ -100,6 +158,7 @@ fn main() {
             capture_position,
             browser_bridge_status,
             start_browser_capture,
+            request_browser_capture,
             latest_browser_capture,
             open_browser_profile,
             check_browser_login,
@@ -107,4 +166,19 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running ClickPilot");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::storage_root_from_env;
+    use std::path::PathBuf;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn storage_root_uses_macos_application_support() {
+        assert_eq!(
+            storage_root_from_env(Some(PathBuf::from("/Users/tester")), None, None),
+            PathBuf::from("/Users/tester/Library/Application Support/ClickPilot")
+        );
+    }
 }

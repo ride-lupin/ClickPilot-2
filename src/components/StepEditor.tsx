@@ -1,32 +1,17 @@
-import { MousePointer2, Trash2 } from "lucide-react";
-import type { AutomationStep, CapturedBrowserElement } from "../types";
+import { Trash2 } from "lucide-react";
+import type { AutomationStep } from "../types";
 
 type Props = {
   steps: AutomationStep[];
-  captureMessage?: string;
-  latestCapture?: CapturedBrowserElement | null;
-  onCaptureCoordinate: () => void;
   onDeleteStep: (index: number) => void;
 };
 
-export function StepEditor({ steps, captureMessage, latestCapture, onCaptureCoordinate, onDeleteStep }: Props) {
+export function StepEditor({ steps, onDeleteStep }: Props) {
   return (
     <section className="form-section">
       <div className="section-heading">
         <h2>클릭 단계</h2>
-        <button type="button" className="secondary-button" onClick={onCaptureCoordinate}>
-          <MousePointer2 size={16} />
-          2초 뒤 좌표 캡처
-        </button>
       </div>
-
-      {captureMessage && <p className="success-text">{captureMessage}</p>}
-      {latestCapture && (
-        <div className="capture-preview">
-          <strong>{latestCapture.textHint || "선택한 브라우저 요소"}</strong>
-          <span>{latestCapture.url}</span>
-        </div>
-      )}
 
       <ol className="step-list">
         {steps.map((step, index) => (

@@ -21,27 +21,50 @@ pub fn validate_task(task: &AutomationTask) -> Result<(), ValidationError> {
         match step {
             AutomationStep::BrowserElement(step) => {
                 if !is_http_pattern(&step.url_pattern) {
-                    return Err(error("browser_url_required", "Browser step URL pattern must start with http:// or https://"));
+                    return Err(error(
+                        "browser_url_required",
+                        "Browser step URL pattern must start with http:// or https://",
+                    ));
                 }
                 if step.selector_candidates.is_empty() {
-                    return Err(error("browser_selector_required", "Browser step requires a selector candidate"));
+                    return Err(error(
+                        "browser_selector_required",
+                        "Browser step requires a selector candidate",
+                    ));
                 }
-                if !(0.0..=1.0).contains(&step.click_offset_ratio.x) || !(0.0..=1.0).contains(&step.click_offset_ratio.y) {
-                    return Err(error("browser_click_offset_invalid", "Click offset must be between 0.0 and 1.0"));
+                if !(0.0..=1.0).contains(&step.click_offset_ratio.x)
+                    || !(0.0..=1.0).contains(&step.click_offset_ratio.y)
+                {
+                    return Err(error(
+                        "browser_click_offset_invalid",
+                        "Click offset must be between 0.0 and 1.0",
+                    ));
                 }
                 if !(1000..=120000).contains(&step.wait.timeout_ms) {
-                    return Err(error("browser_wait_timeout_invalid", "Wait timeout must be between 1000 and 120000ms"));
+                    return Err(error(
+                        "browser_wait_timeout_invalid",
+                        "Wait timeout must be between 1000 and 120000ms",
+                    ));
                 }
                 if !(50..=5000).contains(&step.wait.poll_interval_ms) {
-                    return Err(error("browser_poll_interval_invalid", "Poll interval must be between 50 and 5000ms"));
+                    return Err(error(
+                        "browser_poll_interval_invalid",
+                        "Poll interval must be between 50 and 5000ms",
+                    ));
                 }
                 if !(1..=10).contains(&step.retry.max_attempts) {
-                    return Err(error("browser_retry_attempts_invalid", "Retry attempts must be between 1 and 10"));
+                    return Err(error(
+                        "browser_retry_attempts_invalid",
+                        "Retry attempts must be between 1 and 10",
+                    ));
                 }
             }
             AutomationStep::ScreenCoordinate(step) => {
                 if step.click_count == 0 {
-                    return Err(error("coordinate_click_count_invalid", "Coordinate click count must be at least 1"));
+                    return Err(error(
+                        "coordinate_click_count_invalid",
+                        "Coordinate click count must be at least 1",
+                    ));
                 }
             }
         }
@@ -58,7 +81,10 @@ fn validate_run_target(target: &BrowserRunTarget) -> Result<(), ValidationError>
             ..
         } => {
             if profile_id.trim().is_empty() {
-                return Err(error("browser_profile_required", "Managed browser profile is required"));
+                return Err(error(
+                    "browser_profile_required",
+                    "Managed browser profile is required",
+                ));
             }
             validate_preopen(*preopen_seconds)
         }
@@ -69,7 +95,10 @@ fn validate_run_target(target: &BrowserRunTarget) -> Result<(), ValidationError>
         } => {
             validate_preopen(*preopen_seconds)?;
             if !is_http_pattern(tab_url_pattern) {
-                return Err(error("existing_tab_url_required", "Existing tab URL pattern must start with http:// or https://"));
+                return Err(error(
+                    "existing_tab_url_required",
+                    "Existing tab URL pattern must start with http:// or https://",
+                ));
             }
             Ok(())
         }
@@ -78,7 +107,10 @@ fn validate_run_target(target: &BrowserRunTarget) -> Result<(), ValidationError>
 
 fn validate_preopen(preopen_seconds: u32) -> Result<(), ValidationError> {
     if preopen_seconds > 300 {
-        return Err(error("browser_preopen_invalid", "Preopen seconds must be between 0 and 300"));
+        return Err(error(
+            "browser_preopen_invalid",
+            "Preopen seconds must be between 0 and 300",
+        ));
     }
     Ok(())
 }

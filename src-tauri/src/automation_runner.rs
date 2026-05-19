@@ -46,7 +46,10 @@ pub enum AutomationRunnerError {
     Failed,
 }
 
-pub fn run_browser_steps_with_sidecar(sidecar_path: PathBuf, request: RunnerRequest) -> Result<RunnerResult, AutomationRunnerError> {
+pub fn run_browser_steps_with_sidecar(
+    sidecar_path: PathBuf,
+    request: RunnerRequest,
+) -> Result<RunnerResult, AutomationRunnerError> {
     let mut child = Command::new(sidecar_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

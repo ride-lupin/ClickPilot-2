@@ -107,6 +107,14 @@ export function startBrowserCapture() {
   }));
 }
 
+export function requestBrowserCapture() {
+  return call<BrowserBridgeStatus>("request_browser_capture", undefined, () => ({
+    port: 27183,
+    paired: false,
+    captureActive: true,
+  }));
+}
+
 export function getLatestBrowserCapture() {
   return call<CapturedBrowserElement | null>("latest_browser_capture", undefined, () => null);
 }
