@@ -130,3 +130,9 @@ export function checkBrowserLogin(target: BrowserRunTarget) {
 export function listExecutionLogs() {
   return call<ExecutionLog[]>("list_execution_logs", undefined, () => readLogs());
 }
+
+export function clearExecutionLogs() {
+  return call<void>("clear_execution_logs", undefined, () => {
+    window.localStorage.setItem(logStorageKey, "[]");
+  });
+}

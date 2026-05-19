@@ -65,6 +65,12 @@ impl Storage {
         self.write_state(&state)
     }
 
+    pub fn clear_execution_logs(&self) -> Result<(), StorageError> {
+        let mut state = self.read_state()?;
+        state.execution_logs.clear();
+        self.write_state(&state)
+    }
+
     pub fn append_existing_tab_result_log(
         &self,
         result: ExistingTabExecutionResult,
@@ -203,6 +209,30 @@ mod tests {
             Some("data:image/png;base64,abc")
         );
         assert!(logs[0].finished_at.is_some());
+    }
+
+    #[test]
+    fn clears_execution_logs_without_deleting_tasks() {
+        let dir = tempdir().unwrap();
+        let storage = Storage::new(dir.path().into());
+        storage.save_task(task_fixture("task-1")).unwrap();
+        storage
+            .append_existing_tab_result_log(crate::browser_bridge::ExistingTabExecutionResult {
+                execution_id: "execution-1".into(),
+                task_id: "task-1".into(),
+                task_name: "예약 작업".into(),
+                status: "failed".into(),
+                reason: Some("elementNotFound".into()),
+                message: None,
+                clicked_steps: 0,
+                screenshot_data_url: None,
+            })
+            .unwrap();
+
+        storage.clear_execution_logs().unwrap();
+
+        assert!(storage.list_execution_logs().unwrap().is_empty());
+        assert_eq!(storage.list_tasks().unwrap().len(), 1);
     }
 
     #[test]

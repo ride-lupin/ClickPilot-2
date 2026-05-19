@@ -93,6 +93,11 @@ fn list_execution_logs(state: State<AppState>) -> Result<Vec<ExecutionLog>, Stri
     commands::list_execution_logs(&state.storage.lock().unwrap()).map_err(error_message)
 }
 
+#[tauri::command]
+fn clear_execution_logs(state: State<AppState>) -> Result<(), String> {
+    commands::clear_execution_logs(&state.storage.lock().unwrap()).map_err(error_message)
+}
+
 fn error_message(error: commands::AppError) -> String {
     error.to_string()
 }
@@ -162,7 +167,8 @@ fn main() {
             latest_browser_capture,
             open_browser_profile,
             check_browser_login,
-            list_execution_logs
+            list_execution_logs,
+            clear_execution_logs
         ])
         .run(tauri::generate_context!())
         .expect("error while running ClickPilot");

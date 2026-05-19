@@ -1,8 +1,10 @@
 import { CalendarClock, Play, Plus, Trash2 } from "lucide-react";
+import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   browserBridgeStatus,
   checkBrowserLogin,
+  clearExecutionLogs,
   deleteTask,
   getLatestBrowserCapture,
   listExecutionLogs,
@@ -13,6 +15,7 @@ import {
   startBrowserCapture,
   startTaskNow,
 } from "./api";
+import { BrowserCapturePanel } from "./components/BrowserCapturePanel";
 import { ExecutionLogs } from "./components/ExecutionLogs";
 import { TaskEditor } from "./components/TaskEditor";
 import type {
@@ -104,11 +107,16 @@ export default function App() {
   }
 
   async function handleDelete(task: AutomationTask) {
-    const confirmed = window.confirm("이 작업을 삭제하시겠습니까?");
-    if (!confirmed) return;
     await deleteTask(task.id);
     if (draft?.id === task.id) setDraft(null);
     setMessage("작업이 삭제되었습니다.");
+    await refresh();
+  }
+
+  async function handleClearLogs() {
+    await clearExecutionLogs();
+    setLogs([]);
+    setMessage("실행 로그를 모두 삭제했습니다.");
     await refresh();
   }
 
@@ -161,6 +169,17 @@ export default function App() {
     setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
   }
 
+  function selectTask(task: AutomationTask) {
+    setDraft(task);
+    setSaveFeedback(null);
+  }
+
+  function selectTaskFromKeyboard(event: KeyboardEvent, task: AutomationTask) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    selectTask(task);
+  }
+
   return (
     <main className="app-shell">
       <aside className="task-list-panel">
@@ -182,26 +201,45 @@ export default function App() {
         {message && <p className="status-message">{message}</p>}
         <ul className="task-list">
           {tasks.map((task) => (
-            <li key={task.id} className={selectedTask?.id === task.id ? "selected" : undefined}>
-              <button
-                type="button"
+            <li
+              key={task.id}
+              className={selectedTask?.id === task.id ? "selected" : undefined}
+              role="button"
+              tabIndex={0}
+              aria-label={`작업 선택 ${task.name}`}
+              onClick={() => selectTask(task)}
+              onKeyDown={(event) => selectTaskFromKeyboard(event, task)}
+            >
+              <div
                 className="task-select"
-                onClick={() => {
-                  setDraft(task);
-                  setSaveFeedback(null);
-                }}
               >
                 <strong>{task.name}</strong>
                 <span>
                   <CalendarClock size={14} /> 다음 실행
                 </span>
                 <span>{nextRunLabel(task)}</span>
-              </button>
+              </div>
               <div className="task-actions">
-                <button type="button" className="icon-button" aria-label={`즉시 실행 ${task.name}`} onClick={() => void handleRun(task)}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={`즉시 실행 ${task.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleRun(task);
+                  }}
+                >
                   <Play size={15} />
                 </button>
-                <button type="button" className="icon-button" aria-label={`작업 삭제 ${task.name}`} onClick={() => void handleDelete(task)}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={`작업 삭제 ${task.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleDelete(task);
+                  }}
+                >
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -222,29 +260,31 @@ export default function App() {
         </ul>
       </aside>
       <section className="workspace">
-        {draft ? (
-          <>
+        <div className="workspace-main">
+          <BrowserCapturePanel
+            status={bridgeStatus}
+            captureSession={captureSession}
+            onRefreshToken={() => void handleStartBrowserCapture()}
+            onRequestCapture={() => void handleRequestBrowserCapture()}
+          />
+          {draft ? (
             <TaskEditor
               draft={draft}
-              bridgeStatus={bridgeStatus}
-              captureSession={captureSession}
               saveFeedback={saveFeedback}
               onChange={handleDraftChange}
               onSave={() => void handleSave()}
-              onRefreshPairingToken={() => void handleStartBrowserCapture()}
-              onRequestBrowserCapture={() => void handleRequestBrowserCapture()}
               onDeleteStep={deleteDraftStep}
               onOpenProfile={openBrowserProfile}
               onCheckLogin={checkBrowserLogin}
             />
-          </>
-        ) : (
-          <section className="empty-state">
-            <h2>작업을 선택하거나 새 작업을 만드세요</h2>
-            <p>브라우저 버튼 선택, 좌표 fallback, 스케줄, 로그인 확인을 한 작업 안에서 관리합니다.</p>
-          </section>
-        )}
-        <ExecutionLogs logs={logs} />
+          ) : (
+            <section className="empty-state">
+              <h2>작업을 선택하거나 새 작업을 만드세요</h2>
+              <p>확장프로그램 연결은 전역에서 한 번 설정하고, 작업별로 스케줄과 실행 단계를 관리합니다.</p>
+            </section>
+          )}
+        </div>
+        <ExecutionLogs logs={logs} onClearLogs={() => void handleClearLogs()} />
       </section>
     </main>
   );

@@ -9,12 +9,20 @@ const reasonCopy: Record<string, string> = {
 
 type Props = {
   logs: ExecutionLog[];
+  onClearLogs: () => void;
 };
 
-export function ExecutionLogs({ logs }: Props) {
+export function ExecutionLogs({ logs, onClearLogs }: Props) {
   return (
     <section className="logs-panel">
-      <h2>실행 로그</h2>
+      <div className="section-heading">
+        <h2>실행 로그</h2>
+        {logs.length > 0 && (
+          <button type="button" className="secondary-button" onClick={onClearLogs}>
+            로그 전체 삭제
+          </button>
+        )}
+      </div>
       {logs.length === 0 ? (
         <p className="hint">아직 실행 로그가 없습니다.</p>
       ) : (

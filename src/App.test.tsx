@@ -157,6 +157,23 @@ describe("ClickPilot task workflow", () => {
     expect(apiMocks.requestBrowserCapture).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps extension pairing controls global instead of inside the selected task editor", async () => {
+    apiMocks.startBrowserCapture.mockResolvedValue({ port: 27183, pairingToken: "global-token-123" });
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "토큰 갱신" }));
+
+    expect(await screen.findByDisplayValue("global-token-123")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("27183")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "새 작업" }));
+    const editor = screen.getByLabelText("작업 편집");
+
+    expect(within(editor).queryByText("브라우저 버튼 선택")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "브라우저 버튼 선택" })).toBeInTheDocument();
+  });
+
   it("shows save feedback for unsaved, saved, and failed task changes", async () => {
     apiMocks.saveTask.mockImplementation(async (task) => savedTaskFixture({ ...task, id: "task-saved" }));
 
@@ -187,7 +204,6 @@ describe("ClickPilot task workflow", () => {
   it("removes an existing saved task", async () => {
     apiMocks.listTasks.mockResolvedValue([savedTaskFixture({ id: "task-1", name: "삭제 대상" })]);
     apiMocks.deleteTask.mockResolvedValue(undefined);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
 
@@ -195,6 +211,31 @@ describe("ClickPilot task workflow", () => {
 
     expect(apiMocks.deleteTask).toHaveBeenCalledWith("task-1");
     expect(await screen.findByText("작업이 삭제되었습니다.")).toBeInTheDocument();
+  });
+
+  it("selects a saved task by clicking anywhere on its card body", async () => {
+    apiMocks.listTasks.mockResolvedValue([savedTaskFixture({ id: "task-1", name: "카드 전체 선택" })]);
+
+    render(<App />);
+
+    const card = (await screen.findByText("카드 전체 선택")).closest("li");
+    expect(card).not.toBeNull();
+    await userEvent.click(within(card!).getByText("09:00"));
+
+    expect(screen.getByLabelText("작업 편집")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("카드 전체 선택")).toBeInTheDocument();
+  });
+
+  it("does not select the task card when deleting from the card action", async () => {
+    apiMocks.listTasks.mockResolvedValue([savedTaskFixture({ id: "task-1", name: "삭제만 수행" })]);
+    apiMocks.deleteTask.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "작업 삭제 삭제만 수행" }));
+
+    expect(apiMocks.deleteTask).toHaveBeenCalledWith("task-1");
+    expect(screen.queryByLabelText("작업 편집")).not.toBeInTheDocument();
   });
 
   it("runs a saved task immediately", async () => {
@@ -261,5 +302,26 @@ describe("ClickPilot task workflow", () => {
     expect(openSpy).toHaveBeenCalledWith("", "_blank");
     expect(screenshotDocument.write).toHaveBeenCalledWith(expect.stringContaining("/tmp/clickpilot/failure.png"));
     openSpy.mockRestore();
+  });
+
+  it("clears all execution logs from the logs panel action", async () => {
+    apiMocks.listExecutionLogs.mockResolvedValue([
+      {
+        id: "log-1",
+        taskId: "task-1",
+        taskName: "오전 신청",
+        status: "failed",
+        failureReason: "elementNotFound",
+        startedAt: "2026-05-19T00:00:00.000Z",
+      },
+    ]);
+    apiMocks.clearExecutionLogs.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "로그 전체 삭제" }));
+
+    expect(apiMocks.clearExecutionLogs).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("실행 로그를 모두 삭제했습니다.")).toBeInTheDocument();
   });
 });

@@ -119,6 +119,10 @@ pub fn list_execution_logs(storage: &Storage) -> Result<Vec<ExecutionLog>, AppEr
     Ok(storage.list_execution_logs()?)
 }
 
+pub fn clear_execution_logs(storage: &Storage) -> Result<(), AppError> {
+    Ok(storage.clear_execution_logs()?)
+}
+
 #[cfg(test)]
 mod tests {
     use tempfile::tempdir;

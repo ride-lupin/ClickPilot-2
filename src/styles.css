@@ -88,6 +88,11 @@ a:focus-visible,
   padding: 24px;
 }
 
+.workspace-main {
+  display: grid;
+  gap: 14px;
+}
+
 .primary-button,
 .secondary-button,
 .icon-button {
@@ -174,10 +179,16 @@ a:focus-visible,
 .task-list li {
   margin-bottom: 12px;
   padding: 12px;
+  cursor: pointer;
 }
 
 .task-list li.selected {
   border-color: var(--accent);
+}
+
+.task-list li:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .task-select {

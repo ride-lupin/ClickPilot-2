@@ -1,19 +1,14 @@
 import type { AutomationTask, BrowserRunTarget } from "../types";
-import { BrowserCapturePanel } from "./BrowserCapturePanel";
 import { LoginCheckPanel } from "./LoginCheckPanel";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { StepEditor } from "./StepEditor";
-import type { BrowserBridgeStatus, BrowserCaptureSession, LoginCheckResult, ManagedBrowserProfileTarget } from "../types";
+import type { LoginCheckResult, ManagedBrowserProfileTarget } from "../types";
 
 type Props = {
   draft: AutomationTask;
-  bridgeStatus: BrowserBridgeStatus | null;
-  captureSession: BrowserCaptureSession | null;
   saveFeedback: { kind: "success" | "warning" | "error"; message: string } | null;
   onChange: (task: AutomationTask) => void;
   onSave: () => void;
-  onRefreshPairingToken: () => void;
-  onRequestBrowserCapture: () => void;
   onDeleteStep: (index: number) => void;
   onOpenProfile: (target: ManagedBrowserProfileTarget) => Promise<void>;
   onCheckLogin: (target: BrowserRunTarget) => Promise<LoginCheckResult>;
@@ -21,13 +16,9 @@ type Props = {
 
 export function TaskEditor({
   draft,
-  bridgeStatus,
-  captureSession,
   saveFeedback,
   onChange,
   onSave,
-  onRefreshPairingToken,
-  onRequestBrowserCapture,
   onDeleteStep,
   onOpenProfile,
   onCheckLogin,
@@ -115,12 +106,6 @@ export function TaskEditor({
         )}
       </div>
       <ScheduleEditor value={draft.schedule} onChange={(schedule) => onChange({ ...draft, schedule })} />
-      <BrowserCapturePanel
-        status={bridgeStatus}
-        captureSession={captureSession}
-        onRefreshToken={onRefreshPairingToken}
-        onRequestCapture={onRequestBrowserCapture}
-      />
       <StepEditor
         steps={draft.steps}
         onDeleteStep={onDeleteStep}
