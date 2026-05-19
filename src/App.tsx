@@ -28,7 +28,7 @@ import type {
 } from "./types";
 
 function defaultExistingTabTarget() {
-  return { mode: "existingTab" as const, browser: "any" as const, preopenSeconds: 30, tabUrlPattern: "https://", requireActiveTab: false };
+  return { mode: "existingTab" as const, browser: "any" as const, preopenSeconds: 30, tabUrlPattern: "", requireActiveTab: false };
 }
 
 function defaultFastClickSettings(): FastClickSettings {
@@ -40,6 +40,16 @@ function defaultFastClickSettings(): FastClickSettings {
     maxWaitMs: 10000,
     clickWhen: { visible: true, notDisabled: true },
   };
+}
+
+function normalizeFastClickSettings(settings: FastClickSettings): FastClickSettings {
+  if (settings.refreshPolicy !== "repeatAfterStart") return settings;
+  return { ...settings, refreshPolicy: "onceAtStart" };
+}
+
+function normalizeTask(task: AutomationTask): AutomationTask {
+  if (!task.fastClick) return task;
+  return { ...task, fastClick: normalizeFastClickSettings(task.fastClick) };
 }
 
 function newTask(): AutomationTask {
@@ -87,6 +97,14 @@ function browserRefreshStep() {
   };
 }
 
+function domainFromUrl(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -120,7 +138,7 @@ export default function App() {
   async function handleSave() {
     if (!draft) return;
     try {
-      const saved = await saveTask(draft);
+      const saved = await saveTask(normalizeTask(draft));
       setDraft(saved);
       setSaveFeedback({ kind: "success", message: "저장되었습니다." });
       setMessage("작업이 저장되었습니다.");
@@ -155,7 +173,7 @@ export default function App() {
     const session = await startBrowserCapture();
     setCaptureSession(session);
     setSaveFeedback((current) => current ?? { kind: "warning", message: "현재 저장 안 됨" });
-    setMessage("새 pairing token을 발급했습니다. 10분 안에 확장프로그램에 저장한 뒤 브라우저 버튼 선택을 누르세요.");
+    setMessage("새 pairing token을 발급했습니다. 확장프로그램에 저장하면 앱 재시작 후에도 같은 토큰으로 연결됩니다.");
     await refresh();
   }
 
@@ -179,7 +197,14 @@ export default function App() {
       return;
     }
     if (draft) {
-      setDraft({ ...draft, steps: [...draft.steps, toBrowserStep(capture)] });
+      setDraft({
+        ...draft,
+        runTarget:
+          draft.runTarget.mode === "existingTab" && !draft.runTarget.tabUrlPattern.trim()
+            ? { ...draft.runTarget, tabUrlPattern: domainFromUrl(capture.url) }
+            : draft.runTarget,
+        steps: [...draft.steps, toBrowserStep(capture)],
+      });
       setSaveFeedback({ kind: "warning", message: "현재 저장 안 됨" });
     }
   }
@@ -302,7 +327,6 @@ export default function App() {
             status={bridgeStatus}
             captureSession={captureSession}
             onRefreshToken={() => void handleStartBrowserCapture()}
-            onRequestCapture={() => void handleRequestBrowserCapture()}
           />
           {draft ? (
             <TaskEditor
@@ -312,6 +336,7 @@ export default function App() {
               onSave={() => void handleSave()}
               onDeleteStep={deleteDraftStep}
               onAddRefreshStep={addRefreshStep}
+              onRequestCapture={() => void handleRequestBrowserCapture()}
               onOpenProfile={openBrowserProfile}
               onCheckLogin={checkBrowserLogin}
             />

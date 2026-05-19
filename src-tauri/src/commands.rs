@@ -92,8 +92,13 @@ pub fn browser_bridge_status(bridge: &BrowserBridge) -> BrowserBridgeStatus {
     bridge.status()
 }
 
-pub fn start_browser_capture(bridge: &BrowserBridge) -> BrowserCaptureSession {
-    bridge.start_capture()
+pub fn start_browser_capture(
+    storage: &Storage,
+    bridge: &BrowserBridge,
+) -> Result<BrowserCaptureSession, AppError> {
+    let session = bridge.start_capture();
+    storage.save_browser_pairing_token(session.pairing_token.clone())?;
+    Ok(session)
 }
 
 pub fn request_browser_capture(bridge: &BrowserBridge) -> bool {
@@ -197,7 +202,9 @@ mod tests {
 
         start_task_now(&storage, &bridge, "task-existing-tab".into()).unwrap();
 
-        let queued = bridge.next_existing_tab("").expect("queued execution");
+        let queued = bridge
+            .next_existing_tab(&session.pairing_token)
+            .expect("queued execution");
         assert_eq!(queued.task_id, "task-existing-tab");
         assert_eq!(queued.task_name, "구매 관리");
         assert_eq!(queued.steps.len(), 1);
@@ -241,7 +248,9 @@ mod tests {
 
         start_task_now(&storage, &bridge, "task-existing-tab".into()).unwrap();
 
-        let queued = bridge.next_existing_tab("").expect("queued execution");
+        let queued = bridge
+            .next_existing_tab(&session.pairing_token)
+            .expect("queued execution");
         assert!(queued.fast_click.is_some());
         assert_eq!(queued.fast_click.unwrap().refresh_interval_ms, 500);
     }

@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -150,7 +150,7 @@ describe("ClickPilot task workflow", () => {
     const runTarget = screen.getByLabelText("실행 브라우저 방식");
     expect(runTarget).toHaveValue("existingTab");
     expect(screen.getByRole("option", { name: "전용 자동화 브라우저" })).toBeDisabled();
-    expect(screen.getByLabelText("대상 탭 URL 패턴")).toHaveValue("https://");
+    expect(screen.getByLabelText("대상 탭 도메인")).toHaveValue("");
   });
 
   it("shows fast click controls only when the option is enabled", async () => {
@@ -163,12 +163,15 @@ describe("ClickPilot task workflow", () => {
     await userEvent.click(screen.getByLabelText("선착순 모드 사용"));
 
     expect(screen.getByLabelText("새로고침 방식")).toHaveValue("onceAtStart");
+    expect(screen.queryByRole("option", { name: "시작 시간 이후 반복 새로고침" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("최대 대기 시간(ms)")).toHaveValue(10000);
-    expect(screen.getByLabelText("반복 새로고침 간격(ms)")).toHaveValue(500);
+    expect(screen.queryByLabelText("반복 새로고침 간격(ms)")).not.toBeInTheDocument();
   });
 
   it("refreshes the pairing token separately from browser button selection", async () => {
     apiMocks.startBrowserCapture.mockResolvedValue({ port: 27183, pairingToken: "pair-token-123" });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
     apiMocks.getLatestBrowserCapture
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
@@ -186,15 +189,21 @@ describe("ClickPilot task workflow", () => {
 
     expect(await screen.findByDisplayValue("pair-token-123")).toBeInTheDocument();
     expect(screen.getByDisplayValue("27183")).toBeInTheDocument();
-    expect(screen.getByText(/초기 연결 승인용 token이며, 연결 후에는 앱을 종료하거나 연결 해제할 때까지 유지됩니다/)).toBeInTheDocument();
+    expect(screen.getByText(/Pairing token은 만료되지 않으며, 앱 재시작 후에도 같은 토큰으로 연결됩니다/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByDisplayValue("pair-token-123"));
+
+    expect(writeText).toHaveBeenCalledWith("pair-token-123");
+    expect(await screen.findByText("Pairing token을 클립보드에 복사했습니다.")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "브라우저 버튼 선택" }));
 
     expect(apiMocks.startBrowserCapture).toHaveBeenCalledTimes(1);
     expect(apiMocks.requestBrowserCapture).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.getByLabelText("대상 탭 도메인")).toHaveValue("example.com"));
   });
 
-  it("keeps extension pairing controls global instead of inside the selected task editor", async () => {
+  it("keeps token controls global and places browser selection in the click steps section", async () => {
     apiMocks.startBrowserCapture.mockResolvedValue({ port: 27183, pairingToken: "global-token-123" });
 
     render(<App />);
@@ -206,9 +215,11 @@ describe("ClickPilot task workflow", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "새 작업" }));
     const editor = screen.getByLabelText("작업 편집");
+    const stepSection = within(editor).getByRole("heading", { name: "클릭 단계" }).closest("section");
 
-    expect(within(editor).queryByText("브라우저 버튼 선택")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "브라우저 버튼 선택" })).toBeInTheDocument();
+    expect(within(editor).queryByRole("button", { name: "토큰 갱신" })).not.toBeInTheDocument();
+    expect(stepSection).not.toBeNull();
+    expect(within(stepSection!).getByRole("button", { name: "브라우저 버튼 선택" })).toBeInTheDocument();
   });
 
   it("shows save feedback for unsaved, saved, and failed task changes", async () => {

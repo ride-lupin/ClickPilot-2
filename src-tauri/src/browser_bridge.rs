@@ -1,15 +1,12 @@
 use std::{
     collections::{HashMap, VecDeque},
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
 };
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::models::{AutomationStep, FastClickSettings};
-
-const PAIRING_TOKEN_TTL: Duration = Duration::from_secs(600);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,7 +70,6 @@ struct BridgeState {
     port: u16,
     paired: bool,
     token: Option<String>,
-    token_expires_at: Option<Instant>,
     capture_requested: bool,
     capture: Option<CapturedBrowserElement>,
     queue: VecDeque<ExistingTabExecutionRequest>,
@@ -87,7 +83,20 @@ impl BrowserBridge {
                 port,
                 paired: false,
                 token: None,
-                token_expires_at: None,
+                capture_requested: false,
+                capture: None,
+                queue: VecDeque::new(),
+                results: HashMap::new(),
+            })),
+        }
+    }
+
+    pub fn new_with_pairing_token(port: u16, token: String) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(BridgeState {
+                port,
+                paired: true,
+                token: Some(token),
                 capture_requested: false,
                 capture: None,
                 queue: VecDeque::new(),
@@ -109,7 +118,6 @@ impl BrowserBridge {
         let mut state = self.inner.lock().unwrap();
         let token = Uuid::new_v4().to_string();
         state.token = Some(token.clone());
-        state.token_expires_at = Some(Instant::now() + PAIRING_TOKEN_TTL);
         state.capture_requested = false;
         state.paired = false;
         BrowserCaptureSession {
@@ -137,14 +145,14 @@ impl BrowserBridge {
         false
     }
 
-    pub fn is_paired(&self, _token: &str) -> bool {
+    pub fn is_paired(&self, token: &str) -> bool {
         let state = self.inner.lock().unwrap();
-        state.paired
+        state.paired && token_is_current(&state, token)
     }
 
-    pub fn store_capture(&self, _token: &str, capture: CapturedBrowserElement) -> bool {
+    pub fn store_capture(&self, token: &str, capture: CapturedBrowserElement) -> bool {
         let mut state = self.inner.lock().unwrap();
-        if !state.paired {
+        if !state.paired || !token_is_current(&state, token) {
             return false;
         }
         state.capture = Some(capture);
@@ -156,9 +164,9 @@ impl BrowserBridge {
         self.inner.lock().unwrap().capture.clone()
     }
 
-    pub fn take_capture_request(&self, _token: &str) -> bool {
+    pub fn take_capture_request(&self, token: &str) -> bool {
         let state = self.inner.lock().unwrap();
-        if !state.paired || !state.capture_requested {
+        if !state.paired || !token_is_current(&state, token) || !state.capture_requested {
             return false;
         }
         true
@@ -168,9 +176,9 @@ impl BrowserBridge {
         self.inner.lock().unwrap().queue.push_back(request);
     }
 
-    pub fn next_existing_tab(&self, _token: &str) -> Option<ExistingTabExecutionRequest> {
+    pub fn next_existing_tab(&self, token: &str) -> Option<ExistingTabExecutionRequest> {
         let mut state = self.inner.lock().unwrap();
-        if !state.paired {
+        if !state.paired || !token_is_current(&state, token) {
             return None;
         }
         state.queue.pop_front()
@@ -178,11 +186,11 @@ impl BrowserBridge {
 
     pub fn store_existing_tab_result(
         &self,
-        _token: &str,
+        token: &str,
         result: ExistingTabExecutionResult,
     ) -> bool {
         let mut state = self.inner.lock().unwrap();
-        if !state.paired {
+        if !state.paired || !token_is_current(&state, token) {
             return false;
         }
         state.results.insert(result.execution_id.clone(), result);
@@ -191,10 +199,7 @@ impl BrowserBridge {
 }
 
 fn token_is_current(state: &BridgeState, token: &str) -> bool {
-    state.token.as_deref() == Some(token)
-        && state
-            .token_expires_at
-            .is_some_and(|expires_at| expires_at > Instant::now())
+    !token.trim().is_empty() && state.token.as_deref() == Some(token)
 }
 
 #[cfg(test)]
@@ -211,23 +216,35 @@ mod tests {
     }
 
     #[test]
-    fn pairing_survives_token_expiration_for_capture_requests() {
+    fn pairing_token_does_not_expire_before_pairing() {
+        let bridge = BrowserBridge::new(27183);
+        let session = bridge.start_capture();
+
+        assert!(bridge.pair(&session.pairing_token));
+    }
+
+    #[test]
+    fn restored_pairing_token_starts_connected() {
+        let bridge = BrowserBridge::new_with_pairing_token(27183, "saved-token".into());
+
+        assert!(bridge.status().paired);
+        assert!(bridge.is_paired("saved-token"));
+        assert!(!bridge.is_paired("wrong-token"));
+    }
+
+    #[test]
+    fn paired_capture_requests_do_not_require_reentering_token() {
         let bridge = BrowserBridge::new(27183);
         let session = bridge.start_capture();
         assert!(bridge.pair(&session.pairing_token));
 
-        {
-            let mut state = bridge.inner.lock().unwrap();
-            state.token_expires_at = Some(Instant::now() - Duration::from_secs(1));
-        }
-
         assert!(bridge.status().paired);
         assert!(bridge.request_capture());
-        assert!(bridge.take_capture_request(""));
+        assert!(bridge.take_capture_request(&session.pairing_token));
     }
 
     #[test]
-    fn paired_existing_tab_execution_does_not_require_current_token() {
+    fn paired_existing_tab_execution_uses_saved_token_without_expiration() {
         let bridge = BrowserBridge::new(27183);
         let session = bridge.start_capture();
         assert!(bridge.pair(&session.pairing_token));
@@ -244,19 +261,14 @@ mod tests {
             steps: vec![],
         });
 
-        {
-            let mut state = bridge.inner.lock().unwrap();
-            state.token_expires_at = Some(Instant::now() - Duration::from_secs(1));
-        }
-
         assert_eq!(
             bridge
-                .next_existing_tab("")
+                .next_existing_tab(&session.pairing_token)
                 .map(|request| request.execution_id),
             Some("execution-1".into())
         );
         assert!(bridge.store_existing_tab_result(
-            "",
+            &session.pairing_token,
             ExistingTabExecutionResult {
                 execution_id: "execution-1".into(),
                 task_id: "task-1".into(),

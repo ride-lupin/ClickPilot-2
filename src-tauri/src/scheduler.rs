@@ -232,7 +232,7 @@ mod tests {
             run_due_tasks(&storage, &bridge, now, &mut state).unwrap(),
             0
         );
-        assert!(bridge.next_existing_tab("").is_some());
-        assert!(bridge.next_existing_tab("").is_none());
+        assert!(bridge.next_existing_tab(&session.pairing_token).is_some());
+        assert!(bridge.next_existing_tab(&session.pairing_token).is_none());
     }
 }

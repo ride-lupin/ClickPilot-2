@@ -1,4 +1,5 @@
-import { runFastClickInTab, runStepsInTab, urlMatches, type BrowserStep, type FastClickSettings } from "./execution";
+import { runFastClickInTab, runStepsInTab, targetTabUrlMatches, type BrowserStep, type FastClickSettings } from "./execution";
+import { getToolbarBadge } from "./popupStatus";
 
 type ExistingTabExecutionRequest = {
   executionId: string;
@@ -64,8 +65,38 @@ chrome.storage.onChanged.addListener((changes) => {
 });
 
 async function pollAll() {
+  await refreshActionBadge();
   await pollCaptureRequest();
   await pollExistingTabExecution();
+}
+
+async function refreshActionBadge() {
+  const { port, pairingToken } = (await chrome.storage.local.get(["port", "pairingToken"])) as {
+    port?: number;
+    pairingToken?: string;
+  };
+
+  if (!port || !pairingToken) {
+    await setActionBadge(getToolbarBadge({ hasToken: false, appReachable: false, paired: false }));
+    return;
+  }
+
+  const response = await fetch(`http://127.0.0.1:${port}/pair/status`, {
+    headers: { "X-ClickPilot-Token": pairingToken },
+  }).catch(() => null);
+  if (!response?.ok) {
+    await setActionBadge(getToolbarBadge({ hasToken: true, appReachable: false, paired: false }));
+    return;
+  }
+
+  const status = (await response.json()) as { paired?: boolean };
+  await setActionBadge(getToolbarBadge({ hasToken: true, appReachable: true, paired: Boolean(status.paired) }));
+}
+
+async function setActionBadge(badge: ReturnType<typeof getToolbarBadge>) {
+  await chrome.action.setBadgeText({ text: badge.text });
+  await chrome.action.setBadgeBackgroundColor({ color: badge.backgroundColor });
+  await chrome.action.setTitle({ title: badge.title });
 }
 
 async function pollExistingTabExecution() {
@@ -117,7 +148,7 @@ async function activateCaptureInTab(tabId: number) {
 
 async function runExistingTab(request: ExistingTabExecutionRequest) {
   const tabs = await chrome.tabs.query(request.requireActiveTab ? { active: true, currentWindow: true } : {});
-  const tab = tabs.find((candidate) => candidate.id && candidate.url && urlMatches(candidate.url, request.tabUrlPattern));
+  const tab = tabs.find((candidate) => candidate.id && candidate.url && targetTabUrlMatches(candidate.url, request.tabUrlPattern));
   if (!tab?.id) {
     return {
       executionId: request.executionId,

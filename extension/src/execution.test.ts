@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runFastClickInTab, runStepsInTab, sendExecuteStepsWithFallback } from "./execution";
+import { runFastClickInTab, runStepsInTab, sendExecuteStepsWithFallback, targetTabUrlMatches } from "./execution";
 
 describe("sendExecuteStepsWithFallback", () => {
   it("injects the content script and retries when the first message fails", async () => {
@@ -143,5 +143,13 @@ describe("runFastClickInTab", () => {
         clickWhen: { visible: true, notDisabled: true },
       },
     });
+  });
+});
+
+describe("targetTabUrlMatches", () => {
+  it("matches existing tabs by domain regardless of protocol, path, query, or www", () => {
+    expect(targetTabUrlMatches("https://www.ride-office.kr/dashboard?tab=1", "ride-office.kr")).toBe(true);
+    expect(targetTabUrlMatches("http://ride-office.kr/", "https://ride-office.kr/admin")).toBe(true);
+    expect(targetTabUrlMatches("https://admin.ride-office.kr/", "ride-office.kr")).toBe(false);
   });
 });

@@ -133,4 +133,19 @@ mod tests {
 
         assert_eq!(error.code, "fast_click_existing_tab_required");
     }
+
+    #[test]
+    fn existing_tab_target_accepts_domain_without_protocol() {
+        let mut task = browser_task_fixture();
+        task.run_target = BrowserRunTarget::ExistingTab {
+            browser: ExistingTabBrowserKind::Any,
+            preopen_seconds: 30,
+            tab_url_pattern: "ride-office.kr".into(),
+            require_active_tab: false,
+            login_check_url: None,
+            login_success_selector: None,
+        };
+
+        validate_task(&task).unwrap();
+    }
 }

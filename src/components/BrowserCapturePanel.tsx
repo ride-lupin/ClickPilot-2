@@ -1,25 +1,29 @@
-import { PlugZap } from "lucide-react";
+import { useState } from "react";
 import type { BrowserBridgeStatus, BrowserCaptureSession } from "../types";
 
 type Props = {
   status: BrowserBridgeStatus | null;
   captureSession: BrowserCaptureSession | null;
   onRefreshToken: () => void;
-  onRequestCapture: () => void;
 };
 
-export function BrowserCapturePanel({ status, captureSession, onRefreshToken, onRequestCapture }: Props) {
+export function BrowserCapturePanel({ status, captureSession, onRefreshToken }: Props) {
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+
+  async function copyPairingToken() {
+    if (!captureSession?.pairingToken) return;
+
+    await navigator.clipboard.writeText(captureSession.pairingToken);
+    setCopyMessage("Pairing token을 클립보드에 복사했습니다.");
+  }
+
   return (
     <section className="form-section">
       <div className="section-heading">
-        <h2>브라우저 버튼 선택</h2>
+        <h2>확장 프로그램 연결</h2>
         <div className="button-row">
           <button type="button" className="secondary-button" onClick={onRefreshToken}>
             토큰 갱신
-          </button>
-          <button type="button" className="primary-button" onClick={onRequestCapture}>
-            <PlugZap size={16} />
-            브라우저 버튼 선택
           </button>
         </div>
       </div>
@@ -37,10 +41,16 @@ export function BrowserCapturePanel({ status, captureSession, onRefreshToken, on
           </label>
           <label>
             Pairing token
-            <input readOnly value={captureSession.pairingToken} />
+            <input
+              readOnly
+              title="클릭하면 Pairing token을 복사합니다."
+              value={captureSession.pairingToken}
+              onClick={() => void copyPairingToken()}
+            />
           </label>
+          {copyMessage && <p className="success-text">{copyMessage}</p>}
           <p className="hint">
-            확장프로그램 팝업에 위 값을 입력합니다. 초기 연결 승인용 token이며, 연결 후에는 앱을 종료하거나 연결 해제할 때까지 유지됩니다.
+            확장프로그램 팝업에 위 값을 입력합니다. Pairing token은 만료되지 않으며, 앱 재시작 후에도 같은 토큰으로 연결됩니다.
           </p>
         </div>
       )}

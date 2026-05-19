@@ -60,8 +60,9 @@ fn browser_bridge_status(state: State<AppState>) -> BrowserBridgeStatus {
 }
 
 #[tauri::command]
-fn start_browser_capture(state: State<AppState>) -> BrowserCaptureSession {
-    commands::start_browser_capture(&state.browser_bridge)
+fn start_browser_capture(state: State<AppState>) -> Result<BrowserCaptureSession, String> {
+    commands::start_browser_capture(&state.storage.lock().unwrap(), &state.browser_bridge)
+        .map_err(error_message)
 }
 
 #[tauri::command]
@@ -69,7 +70,7 @@ fn request_browser_capture(state: State<AppState>) -> Result<BrowserBridgeStatus
     if commands::request_browser_capture(&state.browser_bridge) {
         Ok(commands::browser_bridge_status(&state.browser_bridge))
     } else {
-        Err("pairing token is missing or expired".into())
+        Err("pairing token is missing".into())
     }
 }
 
@@ -145,8 +146,15 @@ fn storage_root_from_env(
 }
 
 fn main() {
-    let browser_bridge = BrowserBridge::new(27183);
     let storage = Arc::new(Mutex::new(Storage::new(storage_root())));
+    let browser_bridge = storage
+        .lock()
+        .unwrap()
+        .browser_pairing_token()
+        .ok()
+        .flatten()
+        .map(|token| BrowserBridge::new_with_pairing_token(27183, token))
+        .unwrap_or_else(|| BrowserBridge::new(27183));
     start_browser_bridge_server(browser_bridge.clone(), storage.clone());
     start_scheduler(storage.clone(), browser_bridge.clone());
 

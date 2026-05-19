@@ -26,6 +26,7 @@ struct StoredState {
     version: u32,
     tasks: Vec<AutomationTask>,
     execution_logs: Vec<ExecutionLog>,
+    browser_pairing_token: Option<String>,
 }
 
 impl Storage {
@@ -68,6 +69,16 @@ impl Storage {
     pub fn clear_execution_logs(&self) -> Result<(), StorageError> {
         let mut state = self.read_state()?;
         state.execution_logs.clear();
+        self.write_state(&state)
+    }
+
+    pub fn browser_pairing_token(&self) -> Result<Option<String>, StorageError> {
+        Ok(self.read_state()?.browser_pairing_token)
+    }
+
+    pub fn save_browser_pairing_token(&self, token: String) -> Result<(), StorageError> {
+        let mut state = self.read_state()?;
+        state.browser_pairing_token = Some(token);
         self.write_state(&state)
     }
 
@@ -245,5 +256,20 @@ mod tests {
 
         assert!(saved.id.starts_with("task-"));
         assert_eq!(storage.list_tasks().unwrap()[0].id, saved.id);
+    }
+
+    #[test]
+    fn stores_browser_pairing_token() {
+        let dir = tempdir().unwrap();
+        let storage = Storage::new(dir.path().into());
+
+        storage
+            .save_browser_pairing_token("saved-token".into())
+            .unwrap();
+
+        assert_eq!(
+            storage.browser_pairing_token().unwrap().as_deref(),
+            Some("saved-token")
+        );
     }
 }

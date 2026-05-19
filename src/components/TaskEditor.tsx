@@ -11,6 +11,7 @@ type Props = {
   onSave: () => void;
   onDeleteStep: (index: number) => void;
   onAddRefreshStep: () => void;
+  onRequestCapture: () => void;
   onOpenProfile: (target: ManagedBrowserProfileTarget) => Promise<void>;
   onCheckLogin: (target: BrowserRunTarget) => Promise<LoginCheckResult>;
 };
@@ -33,10 +34,11 @@ export function TaskEditor({
   onSave,
   onDeleteStep,
   onAddRefreshStep,
+  onRequestCapture,
   onOpenProfile,
   onCheckLogin,
 }: Props) {
-  const fastClick = draft.fastClick ?? defaultFastClickSettings();
+  const fastClick = normalizeFastClickSettings(draft.fastClick ?? defaultFastClickSettings());
 
   function updateFastClick(update: Partial<FastClickSettings>) {
     onChange({ ...draft, fastClick: { ...fastClick, ...update } });
@@ -65,7 +67,7 @@ export function TaskEditor({
                 runTarget:
                   mode === "managedProfile"
                     ? { mode, browser: "chrome", profileId: "default", preopenSeconds: 30 }
-                    : { mode, browser: "any", preopenSeconds: 30, tabUrlPattern: "https://", requireActiveTab: false },
+                    : { mode, browser: "any", preopenSeconds: 30, tabUrlPattern: "", requireActiveTab: false },
               });
             }}
           >
@@ -105,8 +107,10 @@ export function TaskEditor({
         ) : (
           <div className="field-grid">
             <label>
-              대상 탭 URL 패턴
+              대상 탭 도메인
               <input
+                aria-label="대상 탭 도메인"
+                placeholder="ride-office.kr"
                 value={draft.runTarget.tabUrlPattern}
                 onChange={(event) => {
                   if (draft.runTarget.mode !== "existingTab") return;
@@ -148,7 +152,6 @@ export function TaskEditor({
               >
                 <option value="none">새로고침 안 함</option>
                 <option value="onceAtStart">시작 시간에 1회 새로고침</option>
-                <option value="repeatAfterStart">시작 시간 이후 반복 새로고침</option>
               </select>
             </label>
             <label>
@@ -160,17 +163,6 @@ export function TaskEditor({
                 step={500}
                 value={fastClick.maxWaitMs}
                 onChange={(event) => updateFastClick({ maxWaitMs: Number(event.target.value) })}
-              />
-            </label>
-            <label>
-              반복 새로고침 간격(ms)
-              <input
-                type="number"
-                min={500}
-                max={10000}
-                step={100}
-                value={fastClick.refreshIntervalMs}
-                onChange={(event) => updateFastClick({ refreshIntervalMs: Number(event.target.value) })}
               />
             </label>
             <label>
@@ -192,6 +184,7 @@ export function TaskEditor({
         steps={draft.steps}
         onDeleteStep={onDeleteStep}
         onAddRefreshStep={onAddRefreshStep}
+        onRequestCapture={onRequestCapture}
       />
       <LoginCheckPanel target={draft.runTarget} onOpenProfile={onOpenProfile} onCheckLogin={onCheckLogin} />
       {saveFeedback && <p className={`save-feedback ${saveFeedback.kind}`}>{saveFeedback.message}</p>}
@@ -202,4 +195,9 @@ export function TaskEditor({
       </div>
     </section>
   );
+}
+
+function normalizeFastClickSettings(settings: FastClickSettings): FastClickSettings {
+  if (settings.refreshPolicy !== "repeatAfterStart") return settings;
+  return { ...settings, refreshPolicy: "onceAtStart" };
 }

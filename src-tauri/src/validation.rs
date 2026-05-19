@@ -1,4 +1,4 @@
-use crate::models::{AutomationStep, AutomationTask, BrowserRunTarget};
+use crate::models::{AutomationStep, AutomationTask, BrowserRunTarget, FastClickRefreshPolicy};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationError {
@@ -104,7 +104,11 @@ fn validate_fast_click(task: &AutomationTask) -> Result<(), ValidationError> {
             "Fast click max wait must be between 1000 and 120000ms",
         ));
     }
-    if !(500..=10000).contains(&settings.refresh_interval_ms) {
+    if matches!(
+        settings.refresh_policy,
+        FastClickRefreshPolicy::RepeatAfterStart
+    ) && !(500..=10000).contains(&settings.refresh_interval_ms)
+    {
         return Err(error(
             "fast_click_refresh_interval_invalid",
             "Fast click refresh interval must be between 500 and 10000ms",
@@ -150,10 +154,10 @@ fn validate_run_target(target: &BrowserRunTarget) -> Result<(), ValidationError>
             ..
         } => {
             validate_preopen(*preopen_seconds)?;
-            if !is_http_pattern(tab_url_pattern) {
+            if !is_http_pattern(tab_url_pattern) && !is_domain_pattern(tab_url_pattern) {
                 return Err(error(
                     "existing_tab_url_required",
-                    "Existing tab URL pattern must start with http:// or https://",
+                    "Existing tab target must be a domain or start with http:// or https://",
                 ));
             }
             Ok(())
@@ -173,6 +177,14 @@ fn validate_preopen(preopen_seconds: u32) -> Result<(), ValidationError> {
 
 fn is_http_pattern(value: &str) -> bool {
     value.starts_with("http://") || value.starts_with("https://")
+}
+
+fn is_domain_pattern(value: &str) -> bool {
+    let trimmed = value.trim();
+    !trimmed.is_empty()
+        && !trimmed.contains("://")
+        && !trimmed.contains(char::is_whitespace)
+        && trimmed.contains('.')
 }
 
 fn error(code: &'static str, message: &'static str) -> ValidationError {

@@ -238,6 +238,25 @@ export function urlMatches(url: string, pattern: string) {
   return new RegExp(`^${escaped}$`).test(url);
 }
 
+export function targetTabUrlMatches(url: string, targetDomain: string) {
+  const normalizedUrlHost = comparableHost(url);
+  const normalizedTargetHost = comparableHost(targetDomain);
+  if (normalizedUrlHost && normalizedTargetHost) return normalizedUrlHost === normalizedTargetHost;
+  return urlMatches(url, targetDomain);
+}
+
+function comparableHost(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes("*")) return null;
+
+  try {
+    const parsed = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    return parsed.hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 function normalizeComparableUrl(value: string) {
   if (value.includes("*")) return null;
   try {

@@ -1,21 +1,28 @@
-import { RefreshCw, Trash2 } from "lucide-react";
+import { PlugZap, RefreshCw, Trash2 } from "lucide-react";
 import type { AutomationStep } from "../types";
 
 type Props = {
   steps: AutomationStep[];
   onDeleteStep: (index: number) => void;
   onAddRefreshStep: () => void;
+  onRequestCapture: () => void;
 };
 
-export function StepEditor({ steps, onDeleteStep, onAddRefreshStep }: Props) {
+export function StepEditor({ steps, onDeleteStep, onAddRefreshStep, onRequestCapture }: Props) {
   return (
     <section className="form-section">
       <div className="section-heading">
         <h2>클릭 단계</h2>
-        <button type="button" className="secondary-button" onClick={onAddRefreshStep}>
-          <RefreshCw size={16} />
-          새로고침 단계 추가
-        </button>
+        <div className="button-row">
+          <button type="button" className="secondary-button" onClick={onAddRefreshStep}>
+            <RefreshCw size={16} />
+            새로고침 단계 추가
+          </button>
+          <button type="button" className="primary-button" onClick={onRequestCapture}>
+            <PlugZap size={16} />
+            브라우저 버튼 선택
+          </button>
+        </div>
       </div>
 
       <ol className="step-list">
