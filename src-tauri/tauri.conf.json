@@ -26,6 +26,7 @@
   "bundle": {
     "active": true,
     "targets": ["dmg", "msi", "nsis"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
     "resources": ["../automation-runner/dist-sidecar/*"]
   }
 }
