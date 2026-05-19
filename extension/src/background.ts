@@ -163,7 +163,7 @@ async function runExistingTab(request: ExistingTabExecutionRequest) {
 
   await revealTab(tab);
   const response = request.fastClick?.enabled
-    ? await runFastClickInTab(chrome, tab, request.steps, request.fastClick)
+    ? await runFastClickInTab(chrome, tab, request.steps, request.fastClick, { targetUrlPattern: request.tabUrlPattern })
     : await runStepsInTab(chrome, tab, request.steps);
   const screenshotDataUrl = request.fastClick?.enabled ? undefined : await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
   return {

@@ -46,6 +46,12 @@ type TabLike = {
 type StepRunOptions = {
   timeoutMs?: number;
   pollIntervalMs?: number;
+  targetUrlPattern?: string;
+};
+
+type UrlWaitOptions = {
+  timeoutMs: number;
+  pollIntervalMs: number;
 };
 
 export async function sendExecuteStepsWithFallback(api: ChromeExecutionApi, tabId: number, steps: unknown[]): Promise<Record<string, unknown>> {
@@ -161,9 +167,10 @@ export async function runFastClickInTab(
   }
 
   const startedAt = Date.now();
+  const refreshUrlPattern = options.targetUrlPattern ?? step.urlPattern;
   let fastClickResult: Record<string, unknown>;
   if (settings.refreshPolicy === "onceAtStart") {
-    const refreshResult = await reloadAndWait(api, tab.id, step.urlPattern, settings.maxWaitMs, options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100);
+    const refreshResult = await reloadAndWait(api, tab.id, refreshUrlPattern, settings.maxWaitMs, options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100);
     if (!refreshResult.ok) {
       return { status: "failed", reason: "navigationFailed", message: "Tab did not finish loading after refresh.", clickedSteps };
     }
@@ -178,7 +185,7 @@ export async function runFastClickInTab(
         fastClickResult = result;
         break;
       }
-      await reloadAndWait(api, tab.id, step.urlPattern, settings.maxWaitMs, options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100);
+      await reloadAndWait(api, tab.id, refreshUrlPattern, settings.maxWaitMs, options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100);
       await delay(Math.max(500, settings.refreshIntervalMs));
     }
   } else {
@@ -262,7 +269,7 @@ async function waitForTabUrl(
   api: ChromeExecutionApi,
   tabId: number,
   urlPattern: string,
-  options: Required<StepRunOptions>,
+  options: UrlWaitOptions,
 ): Promise<{ ok: true } | { ok: false }> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < options.timeoutMs) {

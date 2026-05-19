@@ -145,6 +145,48 @@ describe("runFastClickInTab", () => {
     });
   });
 
+  it("allows once-at-start refresh to continue on a matching target domain subpath", async () => {
+    const step = { kind: "browserElement", urlPattern: "https://ride-office.kr/", selectorCandidates: [] } as const;
+    const tab = { id: 123, windowId: 456, url: "https://ride-office.kr/reservations" };
+    const reload = vi.fn().mockResolvedValue(undefined);
+    const sendMessage = vi.fn().mockResolvedValue({ status: "success", clickedSteps: 1, latencyMs: 12 });
+    const executeScript = vi.fn().mockResolvedValue(undefined);
+    const get = vi.fn().mockResolvedValue({ ...tab, status: "complete" });
+
+    const result = await runFastClickInTab(
+      {
+        tabs: { sendMessage, get, reload },
+        scripting: { executeScript },
+      },
+      tab,
+      [step],
+      {
+        enabled: true,
+        armBeforeMs: 5000,
+        refreshPolicy: "onceAtStart",
+        refreshIntervalMs: 500,
+        maxWaitMs: 50,
+        clickWhen: { visible: true, notDisabled: true },
+      },
+      { pollIntervalMs: 1, timeoutMs: 100, targetUrlPattern: "*://ride-office.kr/*" },
+    );
+
+    expect(result).toEqual({ status: "success", clickedSteps: 1, latencyMs: 12 });
+    expect(reload).toHaveBeenCalledWith(123);
+    expect(sendMessage).toHaveBeenCalledWith(123, {
+      type: "CLICKPILOT_ARM_FAST_CLICK",
+      step,
+      settings: {
+        enabled: true,
+        armBeforeMs: 5000,
+        refreshPolicy: "onceAtStart",
+        refreshIntervalMs: 500,
+        maxWaitMs: 1000,
+        clickWhen: { visible: true, notDisabled: true },
+      },
+    });
+  });
+
   it("continues remaining browser steps after the fast click succeeds", async () => {
     const fastStep = {
       kind: "browserElement",
