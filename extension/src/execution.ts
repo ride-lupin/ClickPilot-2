@@ -13,6 +13,7 @@ export type BrowserElementStep = {
   kind?: "browserElement";
   urlPattern?: string;
   wait?: { timeoutMs?: number; pollIntervalMs?: number; refreshBeforeWait?: boolean };
+  delayAfterMs?: number;
 };
 
 export type BrowserRefreshStep = {
@@ -134,32 +135,77 @@ export async function runFastClickInTab(
     return { status: "failed", reason: "matchingTabNotFound", message: "No matching tab was found.", clickedSteps: 0 };
   }
 
-  const step = steps.find((candidate) => candidate.kind !== "browserRefresh");
-  if (!step) {
+  const fastStepIndex = steps.findIndex((candidate) => candidate.kind !== "browserRefresh");
+  if (fastStepIndex === -1) {
     return { status: "failed", reason: "elementNotFound", message: "Fast click mode requires a browser element step.", clickedSteps: 0 };
+  }
+  const step = steps[fastStepIndex] as BrowserElementStep;
+  const previousSteps = steps.slice(0, fastStepIndex);
+  const nextSteps = steps.slice(fastStepIndex + 1);
+  let clickedSteps = 0;
+
+  if (previousSteps.length > 0) {
+    const previousResult = await runStepsInTab(api, tab, previousSteps, options);
+    clickedSteps += Number(previousResult.clickedSteps ?? 0);
+    if (previousResult.status === "failed") return { ...previousResult, clickedSteps };
+
+    if (step.urlPattern) {
+      const waitResult = await waitForTabUrl(api, tab.id, step.urlPattern, {
+        timeoutMs: options.timeoutMs ?? step.wait?.timeoutMs ?? 15000,
+        pollIntervalMs: options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100,
+      });
+      if (!waitResult.ok) {
+        return { status: "failed", reason: "navigationFailed", message: `Tab did not reach ${step.urlPattern}.`, clickedSteps };
+      }
+    }
   }
 
   const startedAt = Date.now();
+  let fastClickResult: Record<string, unknown>;
   if (settings.refreshPolicy === "onceAtStart") {
     const refreshResult = await reloadAndWait(api, tab.id, step.urlPattern, settings.maxWaitMs, options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100);
     if (!refreshResult.ok) {
-      return { status: "failed", reason: "navigationFailed", message: "Tab did not finish loading after refresh.", clickedSteps: 0 };
+      return { status: "failed", reason: "navigationFailed", message: "Tab did not finish loading after refresh.", clickedSteps };
     }
   }
 
   if (settings.refreshPolicy === "repeatAfterStart") {
     const deadline = Date.now() + settings.maxWaitMs;
+    fastClickResult = { status: "failed", reason: "timeout", message: "Fast click timed out while repeatedly refreshing.", clickedSteps: 0 };
     while (Date.now() < deadline) {
       const result = await armFastClick(api, tab.id, step, settings).catch(() => null);
-      if (result && result.status !== "failed") return result;
+      if (result && result.status !== "failed") {
+        fastClickResult = result;
+        break;
+      }
       await reloadAndWait(api, tab.id, step.urlPattern, settings.maxWaitMs, options.pollIntervalMs ?? step.wait?.pollIntervalMs ?? 100);
       await delay(Math.max(500, settings.refreshIntervalMs));
     }
-    return { status: "failed", reason: "timeout", message: "Fast click timed out while repeatedly refreshing.", clickedSteps: 0 };
+  } else {
+    const remainingWaitMs = Math.max(1000, settings.maxWaitMs - (Date.now() - startedAt));
+    fastClickResult = await armFastClick(api, tab.id, step, { ...settings, maxWaitMs: remainingWaitMs });
   }
 
-  const remainingWaitMs = Math.max(1000, settings.maxWaitMs - (Date.now() - startedAt));
-  return armFastClick(api, tab.id, step, { ...settings, maxWaitMs: remainingWaitMs });
+  clickedSteps += Number(fastClickResult.clickedSteps ?? 0);
+  if (fastClickResult.status === "failed") return { ...fastClickResult, clickedSteps };
+  await delay(step.delayAfterMs ?? 0);
+
+  const nextStep = nextSteps[0];
+  if (nextStep?.urlPattern) {
+    const waitResult = await waitForTabUrl(api, tab.id, nextStep.urlPattern, {
+      timeoutMs: options.timeoutMs ?? nextStep.wait?.timeoutMs ?? 15000,
+      pollIntervalMs: options.pollIntervalMs ?? nextStep.wait?.pollIntervalMs ?? 100,
+    });
+    if (!waitResult.ok) {
+      return { status: "failed", reason: "navigationFailed", message: `Tab did not reach ${nextStep.urlPattern}.`, clickedSteps };
+    }
+  }
+
+  if (nextSteps.length === 0) return { ...fastClickResult, clickedSteps };
+
+  const nextResult = await runStepsInTab(api, tab, nextSteps, options);
+  clickedSteps += Number(nextResult.clickedSteps ?? 0);
+  return { ...nextResult, clickedSteps, latencyMs: fastClickResult.latencyMs };
 }
 
 async function armFastClick(
@@ -242,6 +288,10 @@ export function targetTabUrlMatches(url: string, targetDomain: string) {
   const normalizedUrlHost = comparableHost(url);
   const normalizedTargetHost = comparableHost(targetDomain);
   if (normalizedUrlHost && normalizedTargetHost) return normalizedUrlHost === normalizedTargetHost;
+
+  const wildcardTargetHost = comparableWildcardHost(targetDomain);
+  if (normalizedUrlHost && wildcardTargetHost) return normalizedUrlHost === wildcardTargetHost;
+
   return urlMatches(url, targetDomain);
 }
 
@@ -255,6 +305,14 @@ function comparableHost(value: string) {
   } catch {
     return null;
   }
+}
+
+function comparableWildcardHost(value: string) {
+  const trimmed = value.trim();
+  const hostMatch = trimmed.match(/^(?:\*|https?):\/\/([^/*]+)(?:\/.*)?$/i);
+  if (!hostMatch) return null;
+
+  return hostMatch[1].toLowerCase().replace(/^www\./, "");
 }
 
 function normalizeComparableUrl(value: string) {

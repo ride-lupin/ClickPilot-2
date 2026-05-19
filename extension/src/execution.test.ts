@@ -144,6 +144,70 @@ describe("runFastClickInTab", () => {
       },
     });
   });
+
+  it("continues remaining browser steps after the fast click succeeds", async () => {
+    const fastStep = {
+      kind: "browserElement",
+      urlPattern: "https://ride-office.kr/",
+      selectorCandidates: [{ strategy: "text", value: "회의실 예약", confidence: 80 }],
+      delayAfterMs: 1,
+      wait: { timeoutMs: 100, pollIntervalMs: 1 },
+    } as const;
+    const openDialogStep = {
+      kind: "browserElement",
+      urlPattern: "https://ride-office.kr/reservations",
+      selectorCandidates: [{ strategy: "text", value: "예약하기", confidence: 80 }],
+      wait: { timeoutMs: 100, pollIntervalMs: 1 },
+    } as const;
+    const closeDialogStep = {
+      kind: "browserElement",
+      urlPattern: "https://ride-office.kr/reservations",
+      selectorCandidates: [{ strategy: "text", value: "취소", confidence: 80 }],
+      wait: { timeoutMs: 100, pollIntervalMs: 1 },
+    } as const;
+    const tab = { id: 123, windowId: 456, url: "https://ride-office.kr/" };
+    const sendMessage = vi
+      .fn()
+      .mockResolvedValueOnce({ status: "success", clickedSteps: 1, latencyMs: 12 })
+      .mockResolvedValueOnce({ status: "success", clickedSteps: 1 })
+      .mockResolvedValueOnce({ status: "success", clickedSteps: 1 });
+    const executeScript = vi.fn().mockResolvedValue(undefined);
+    const get = vi.fn().mockResolvedValue({ ...tab, url: "https://ride-office.kr/reservations", status: "complete" });
+
+    const result = await runFastClickInTab(
+      {
+        tabs: { sendMessage, get },
+        scripting: { executeScript },
+      },
+      tab,
+      [fastStep, openDialogStep, closeDialogStep],
+      {
+        enabled: true,
+        armBeforeMs: 5000,
+        refreshPolicy: "none",
+        refreshIntervalMs: 500,
+        maxWaitMs: 10000,
+        clickWhen: { visible: true, notDisabled: true },
+      },
+      { pollIntervalMs: 1, timeoutMs: 100 },
+    );
+
+    expect(result).toEqual({ status: "success", clickedSteps: 3, latencyMs: 12 });
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, {
+      type: "CLICKPILOT_ARM_FAST_CLICK",
+      step: fastStep,
+      settings: {
+        enabled: true,
+        armBeforeMs: 5000,
+        refreshPolicy: "none",
+        refreshIntervalMs: 500,
+        maxWaitMs: 10000,
+        clickWhen: { visible: true, notDisabled: true },
+      },
+    });
+    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, { type: "CLICKPILOT_EXECUTE_STEPS", steps: [openDialogStep] });
+    expect(sendMessage).toHaveBeenNthCalledWith(3, 123, { type: "CLICKPILOT_EXECUTE_STEPS", steps: [closeDialogStep] });
+  });
 });
 
 describe("targetTabUrlMatches", () => {
@@ -151,5 +215,11 @@ describe("targetTabUrlMatches", () => {
     expect(targetTabUrlMatches("https://www.ride-office.kr/dashboard?tab=1", "ride-office.kr")).toBe(true);
     expect(targetTabUrlMatches("http://ride-office.kr/", "https://ride-office.kr/admin")).toBe(true);
     expect(targetTabUrlMatches("https://admin.ride-office.kr/", "ride-office.kr")).toBe(false);
+  });
+
+  it("matches app-converted domain patterns across subpaths", () => {
+    expect(targetTabUrlMatches("https://ride-office.kr/members", "*://ride-office.kr/*")).toBe(true);
+    expect(targetTabUrlMatches("https://ride-office.kr/members?page=1", "*://ride-office.kr/*")).toBe(true);
+    expect(targetTabUrlMatches("https://admin.ride-office.kr/members", "*://ride-office.kr/*")).toBe(false);
   });
 });
