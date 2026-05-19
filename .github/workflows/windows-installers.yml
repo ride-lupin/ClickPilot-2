@@ -1,0 +1,79 @@
+name: Build Windows installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-installers:
+    name: Build MSI and setup.exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            extension/package-lock.json
+            automation-runner/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Windows installer toolchains
+        shell: pwsh
+        run: |
+          choco install wixtoolset nsis -y --no-progress
+
+          $wixBin = Get-ChildItem "${env:ProgramFiles(x86)}\WiX Toolset v3.*\bin" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($wixBin) {
+            $wixBin.FullName >> $env:GITHUB_PATH
+          }
+
+          "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix extension ci
+          npm --prefix automation-runner ci
+
+      - name: Run checks
+        run: |
+          npm test
+          npm run lint
+          npm --prefix extension run lint
+          npm --prefix automation-runner run lint
+          cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build extension and Windows sidecar
+        run: |
+          npm run build:extension
+          npm run build:runner
+          npm run package:runner:win
+
+      - name: Build Tauri Windows installers
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --bundles msi,nsis
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: clickpilot-windows-[bundle]
+

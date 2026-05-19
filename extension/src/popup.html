@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>ClickPilot</title>
+    <style>
+      body {
+        width: 280px;
+        margin: 0;
+        padding: 14px;
+        font-family: system-ui, sans-serif;
+        color: #172026;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+      input,
+      button {
+        min-height: 34px;
+        border-radius: 6px;
+        border: 1px solid #d8dfdb;
+      }
+      button {
+        width: 100%;
+        background: #14705d;
+        color: #fff;
+        font-weight: 800;
+      }
+      .status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .status-title {
+        font-size: 13px;
+        font-weight: 800;
+      }
+      #pairingBadge {
+        flex: none;
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: #eef2f0;
+        color: #4f5b57;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      #pairingBadge[data-tone="connected"] {
+        background: #dff5ec;
+        color: #11664f;
+      }
+      #pairingBadge[data-tone="warning"] {
+        background: #fff2c7;
+        color: #765600;
+      }
+      #pairingBadge[data-tone="error"] {
+        background: #fde2df;
+        color: #9b2f25;
+      }
+      #status {
+        color: #637074;
+        line-height: 1.45;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="status-row" aria-live="polite">
+      <span class="status-title">연결 상태</span>
+      <span id="pairingBadge" data-tone="idle">확인 중</span>
+    </div>
+    <label>
+      브릿지 포트
+      <input id="port" value="27183" />
+    </label>
+    <label>
+      Pairing token
+      <input id="pairingToken" />
+    </label>
+    <button id="save">연결 저장</button>
+    <p id="status">대기 중</p>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>
