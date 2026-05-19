@@ -17,9 +17,9 @@ export function ScheduleEditor({ value, onChange }: Props) {
           value={value.type}
           onChange={(event) => {
             const type = event.target.value;
-            if (type === "oneShot") onChange({ type, runAt: new Date().toISOString().slice(0, 16) });
-            if (type === "daily") onChange({ type, timeOfDay: "09:00" });
-            if (type === "weekly") onChange({ type, days: ["월"], timeOfDay: "09:00" });
+            if (type === "oneShot") onChange({ type, runAt: new Date().toISOString().slice(0, 19) });
+            if (type === "daily") onChange({ type, timeOfDay: "09:00:00" });
+            if (type === "weekly") onChange({ type, days: ["월"], timeOfDay: "09:00:00" });
             if (type === "repeatInterval") onChange({ type, intervalMs: 60000 });
           }}
         >
@@ -33,7 +33,7 @@ export function ScheduleEditor({ value, onChange }: Props) {
       {value.type === "oneShot" && (
         <label>
           실행 일시
-          <input type="datetime-local" value={value.runAt} onChange={(event) => onChange({ ...value, runAt: event.target.value })} />
+          <input type="datetime-local" step={1} value={value.runAt} onChange={(event) => onChange({ ...value, runAt: event.target.value })} />
         </label>
       )}
 
@@ -42,6 +42,7 @@ export function ScheduleEditor({ value, onChange }: Props) {
           실행 시간
           <input
             type="time"
+            step={1}
             value={value.timeOfDay}
             onChange={(event) => onChange({ ...value, timeOfDay: event.target.value })}
           />

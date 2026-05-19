@@ -156,7 +156,7 @@ mod tests {
             name: "저장된 작업".into(),
             enabled: true,
             schedule: Schedule::Daily {
-                time_of_day: "09:00".into(),
+                time_of_day: "09:00:00".into(),
             },
             steps: vec![AutomationStep::ScreenCoordinate(ScreenCoordinateStep {
                 x: 100,

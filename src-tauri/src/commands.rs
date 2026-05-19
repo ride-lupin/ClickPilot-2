@@ -234,7 +234,7 @@ mod tests {
             arm_before_ms: 5000,
             refresh_policy: crate::models::FastClickRefreshPolicy::OnceAtStart,
             refresh_interval_ms: 500,
-            max_wait_ms: 10000,
+            max_wait_ms: 20000,
             click_when: crate::models::FastClickCondition {
                 visible: true,
                 not_disabled: true,

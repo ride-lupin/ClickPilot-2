@@ -69,12 +69,16 @@ fn due_key(
     state: &SchedulerState,
 ) -> Option<String> {
     match &task.schedule {
-        Schedule::Daily { time_of_day } => minute_matches(time_of_day, now)
-            .then(|| format!("{}:daily:{}", task.id, minute_key(now))),
+        Schedule::Daily { time_of_day } => {
+            let time = parse_time_of_day(time_of_day)?;
+            time.matches(now)
+                .then(|| format!("{}:daily:{}", task.id, time.fire_key(now)))
+        }
         Schedule::Weekly { days, time_of_day } => {
             let weekday = korean_weekday(now);
-            (days.iter().any(|day| day == weekday) && minute_matches(time_of_day, now))
-                .then(|| format!("{}:weekly:{}:{}", task.id, weekday, minute_key(now)))
+            let time = parse_time_of_day(time_of_day)?;
+            (days.iter().any(|day| day == weekday) && time.matches(now))
+                .then(|| format!("{}:weekly:{}:{}", task.id, weekday, time.fire_key(now)))
         }
         Schedule::OneShot { run_at } => {
             let run_at = DateTime::parse_from_rfc3339(run_at).ok()?;
@@ -108,21 +112,46 @@ fn due_key(
     }
 }
 
-fn minute_matches(time_of_day: &str, now: DateTime<FixedOffset>) -> bool {
-    let Some((hour, minute)) = parse_time_of_day(time_of_day) else {
-        return false;
-    };
-    now.hour() == hour && now.minute() == minute
+#[derive(Debug, Clone, Copy)]
+struct TimeOfDay {
+    hour: u32,
+    minute: u32,
+    second: Option<u32>,
 }
 
-fn parse_time_of_day(value: &str) -> Option<(u32, u32)> {
+impl TimeOfDay {
+    fn matches(self, now: DateTime<FixedOffset>) -> bool {
+        now.hour() == self.hour
+            && now.minute() == self.minute
+            && self.second.is_none_or(|second| now.second() == second)
+    }
+
+    fn fire_key(self, now: DateTime<FixedOffset>) -> String {
+        if self.second.is_some() {
+            second_key(now)
+        } else {
+            minute_key(now)
+        }
+    }
+}
+
+fn parse_time_of_day(value: &str) -> Option<TimeOfDay> {
     let mut parts = value.split(':');
     let hour = parts.next()?.parse::<u32>().ok()?;
     let minute = parts.next()?.parse::<u32>().ok()?;
-    if parts.next().is_some() || hour > 23 || minute > 59 {
+    let second = parts.next().map(str::parse::<u32>).transpose().ok()?;
+    if parts.next().is_some()
+        || hour > 23
+        || minute > 59
+        || second.is_some_and(|second| second > 59)
+    {
         return None;
     }
-    Some((hour, minute))
+    Some(TimeOfDay {
+        hour,
+        minute,
+        second,
+    })
 }
 
 fn minute_key(now: DateTime<FixedOffset>) -> String {
@@ -133,6 +162,18 @@ fn minute_key(now: DateTime<FixedOffset>) -> String {
         now.day(),
         now.hour(),
         now.minute()
+    )
+}
+
+fn second_key(now: DateTime<FixedOffset>) -> String {
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+        now.year(),
+        now.month(),
+        now.day(),
+        now.hour(),
+        now.minute(),
+        now.second()
     )
 }
 
@@ -230,6 +271,43 @@ mod tests {
         );
         assert_eq!(
             run_due_tasks(&storage, &bridge, now, &mut state).unwrap(),
+            0
+        );
+        assert!(bridge.next_existing_tab(&session.pairing_token).is_some());
+        assert!(bridge.next_existing_tab(&session.pairing_token).is_none());
+    }
+
+    #[test]
+    fn run_due_tasks_enqueues_second_precision_daily_task_at_matching_second_only() {
+        let dir = tempdir().unwrap();
+        let storage = Storage::new(dir.path().into());
+        storage
+            .save_task(existing_tab_task(Schedule::Daily {
+                time_of_day: "12:59:15".into(),
+            }))
+            .unwrap();
+        let bridge = BrowserBridge::new(27183);
+        let session = bridge.start_capture();
+        assert!(bridge.pair(&session.pairing_token));
+        let before = DateTime::parse_from_rfc3339("2026-05-19T12:59:14+09:00").unwrap();
+        let matching = DateTime::parse_from_rfc3339("2026-05-19T12:59:15+09:00").unwrap();
+        let after = DateTime::parse_from_rfc3339("2026-05-19T12:59:16+09:00").unwrap();
+        let mut state = SchedulerState::default();
+
+        assert_eq!(
+            run_due_tasks(&storage, &bridge, before, &mut state).unwrap(),
+            0
+        );
+        assert_eq!(
+            run_due_tasks(&storage, &bridge, matching, &mut state).unwrap(),
+            1
+        );
+        assert_eq!(
+            run_due_tasks(&storage, &bridge, matching, &mut state).unwrap(),
+            0
+        );
+        assert_eq!(
+            run_due_tasks(&storage, &bridge, after, &mut state).unwrap(),
             0
         );
         assert!(bridge.next_existing_tab(&session.pairing_token).is_some());

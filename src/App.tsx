@@ -35,7 +35,7 @@ function defaultFastClickSettings(): FastClickSettings {
     armBeforeMs: 5000,
     refreshPolicy: "onceAtStart",
     refreshIntervalMs: 500,
-    maxWaitMs: 10000,
+    maxWaitMs: 20000,
     clickWhen: { visible: true, notDisabled: true },
   };
 }
@@ -56,7 +56,7 @@ function newTask(): AutomationTask {
     id: "",
     name: "새 작업",
     enabled: true,
-    schedule: { type: "daily", timeOfDay: "09:00" },
+    schedule: { type: "daily", timeOfDay: "09:00:00" },
     runTarget: defaultExistingTabTarget(),
     fastClick: defaultFastClickSettings(),
     steps: [],

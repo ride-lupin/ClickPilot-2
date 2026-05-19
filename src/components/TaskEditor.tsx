@@ -19,7 +19,7 @@ function defaultFastClickSettings(): FastClickSettings {
     armBeforeMs: 5000,
     refreshPolicy: "onceAtStart",
     refreshIntervalMs: 500,
-    maxWaitMs: 10000,
+    maxWaitMs: 20000,
     clickWhen: { visible: true, notDisabled: true },
   };
 }
@@ -150,14 +150,14 @@ export function TaskEditor({
               </select>
             </label>
             <label>
-              최대 대기 시간(ms)
+              최대 대기 시간(초)
               <input
                 type="number"
-                min={1000}
-                max={120000}
-                step={500}
-                value={fastClick.maxWaitMs}
-                onChange={(event) => updateFastClick({ maxWaitMs: Number(event.target.value) })}
+                min={1}
+                max={120}
+                step={1}
+                value={Math.round(fastClick.maxWaitMs / 1000)}
+                onChange={(event) => updateFastClick({ maxWaitMs: Number(event.target.value) * 1000 })}
               />
             </label>
             <label>

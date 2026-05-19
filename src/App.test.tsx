@@ -15,7 +15,7 @@ function savedTaskFixture(overrides: Partial<AutomationTask> = {}): AutomationTa
     id: "task-1",
     name: "저장된 작업",
     enabled: true,
-    schedule: { type: "daily", timeOfDay: "09:00" },
+    schedule: { type: "daily", timeOfDay: "09:00:00" },
     runTarget: {
       mode: "managedProfile",
       browser: "chrome",
@@ -139,6 +139,7 @@ describe("ClickPilot task workflow", () => {
 
     expect(screen.getByLabelText("스케줄 유형")).toBeInTheDocument();
     expect(screen.getByLabelText("실행 시간")).toBeInTheDocument();
+    expect(screen.getByLabelText("실행 시간")).toHaveAttribute("step", "1");
     expect(screen.getByLabelText("실행 브라우저 방식")).toBeInTheDocument();
   });
 
@@ -164,7 +165,7 @@ describe("ClickPilot task workflow", () => {
 
     expect(screen.getByLabelText("새로고침 방식")).toHaveValue("onceAtStart");
     expect(screen.queryByRole("option", { name: "시작 시간 이후 반복 새로고침" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("최대 대기 시간(ms)")).toHaveValue(10000);
+    expect(screen.getByLabelText("최대 대기 시간(초)")).toHaveValue(20);
     expect(screen.queryByLabelText("반복 새로고침 간격(ms)")).not.toBeInTheDocument();
   });
 
@@ -268,7 +269,7 @@ describe("ClickPilot task workflow", () => {
 
     const card = (await screen.findByText("카드 전체 선택")).closest("li");
     expect(card).not.toBeNull();
-    await userEvent.click(within(card!).getByText("09:00"));
+    await userEvent.click(within(card!).getByText("09:00:00"));
 
     expect(screen.getByLabelText("작업 편집")).toBeInTheDocument();
     expect(screen.getByDisplayValue("카드 전체 선택")).toBeInTheDocument();
@@ -317,7 +318,7 @@ describe("ClickPilot task workflow", () => {
 
     expect(await screen.findByText("예약 실행 대상")).toBeInTheDocument();
     expect(await screen.findByText("다음 실행")).toBeInTheDocument();
-    expect(await screen.findByText("09:00")).toBeInTheDocument();
+    expect(await screen.findByText("09:00:00")).toBeInTheDocument();
   });
 
   it("shows execution logs without screenshot action", async () => {

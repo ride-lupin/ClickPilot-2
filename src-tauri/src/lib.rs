@@ -21,7 +21,7 @@ mod tests {
             name: "오전 신청".into(),
             enabled: true,
             schedule: Schedule::Daily {
-                time_of_day: "09:00".into(),
+                time_of_day: "09:00:00".into(),
             },
             steps: vec![AutomationStep::BrowserElement(BrowserElementStep {
                 url_pattern: "https://example.com/apply*".into(),
@@ -121,7 +121,7 @@ mod tests {
             arm_before_ms: 5000,
             refresh_policy: FastClickRefreshPolicy::OnceAtStart,
             refresh_interval_ms: 500,
-            max_wait_ms: 10000,
+            max_wait_ms: 20000,
             click_when: FastClickCondition {
                 visible: true,
                 not_disabled: true,
